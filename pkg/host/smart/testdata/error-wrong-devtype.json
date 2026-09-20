@@ -1,0 +1,41 @@
+{
+  "json_format_version": [
+    1,
+    0
+  ],
+  "smartctl": {
+    "version": [
+      7,
+      4
+    ],
+    "pre_release": false,
+    "svn_revision": "5530",
+    "platform_info": "x86_64-linux-6.18.33.2-microsoft-standard-WSL2",
+    "build_info": "(local build)",
+    "argv": [
+      "smartctl",
+      "-j",
+      "-a",
+      "-d",
+      "nvme",
+      "/dev/sda"
+    ],
+    "messages": [
+      {
+        "string": "Read NVMe Identify Controller failed: NVME_IOCTL_ADMIN_CMD: Invalid argument",
+        "severity": "error"
+      }
+    ],
+    "exit_status": 2
+  },
+  "local_time": {
+    "time_t": 1789910210,
+    "asctime": "Sun Sep 20 13:16:50 2026 UTC"
+  },
+  "device": {
+    "name": "/dev/sda",
+    "info_name": "/dev/sda",
+    "type": "nvme",
+    "protocol": "NVMe"
+  }
+}

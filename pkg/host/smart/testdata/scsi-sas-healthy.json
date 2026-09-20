@@ -1,0 +1,88 @@
+{
+  "json_format_version": [
+    1,
+    0
+  ],
+  "smartctl": {
+    "version": [
+      7,
+      4
+    ],
+    "pre_release": false,
+    "svn_revision": "5530",
+    "platform_info": "x86_64-linux-6.18.33.2-microsoft-standard-WSL2",
+    "build_info": "(local build)",
+    "argv": [
+      "smartctl",
+      "-j",
+      "-a",
+      "/dev/sdf"
+    ],
+    "exit_status": 4
+  },
+  "local_time": {
+    "time_t": 1789910317,
+    "asctime": "Sun Sep 20 13:18:37 2026 UTC"
+  },
+  "device": {
+    "name": "/dev/sdf",
+    "info_name": "/dev/sdf",
+    "type": "scsi",
+    "protocol": "SCSI"
+  },
+  "scsi_vendor": "Linux",
+  "scsi_product": "scsi_debug",
+  "scsi_model_name": "Linux scsi_debug",
+  "scsi_revision": "0191",
+  "scsi_version": "SPC-5",
+  "user_capacity": {
+    "blocks": 131072,
+    "bytes": 67108864
+  },
+  "logical_block_size": 512,
+  "scsi_lb_provisioning": {
+    "name": "fully provisioned",
+    "value": 0,
+    "management_enabled": {
+      "name": "LBPME",
+      "value": -1
+    },
+    "read_zeros": {
+      "name": "LBPRZ",
+      "value": 0
+    }
+  },
+  "rotation_rate": 0,
+  "form_factor": {
+    "scsi_value": 5,
+    "name": "< 1.8 inches"
+  },
+  "logical_unit_id": "0x3333333000000fa0",
+  "serial_number": "4000",
+  "device_type": {
+    "scsi_terminology": "Peripheral Device Type [PDT]",
+    "scsi_value": 0,
+    "name": "disk"
+  },
+  "scsi_transport_protocol": {
+    "name": "SAS (SPL-4)",
+    "value": 6
+  },
+  "smart_support": {
+    "available": true,
+    "enabled": false
+  },
+  "temperature_warning": {
+    "enabled": false
+  },
+  "smart_status": {
+    "passed": true
+  },
+  "temperature": {
+    "current": 38,
+    "drive_trip": 65
+  },
+  "seagate_farm_log": {
+    "supported": false
+  }
+}
