@@ -83,5 +83,28 @@ if $K -n "$NS" exec ds/tropis-collector -- test -e /var/run/secrets/kubernetes.i
 fi
 echo ok
 
+step "capture a fixture from the live node and replay it"
+# A scenario with no injected fault, captured from the live node: this checks
+# the capture-to-score loop end to end, not any diagnosis.
+work="$(mktemp -d)"
+cat >"$work/inventory.yaml" <<EOF
+apiVersion: tropis.io/v1alpha1
+kind: Inventory
+cluster: {name: $CLUSTER, kubernetesVersion: unknown}
+nodes:
+  - name: $node
+    role: control-plane
+    disks: []
+EOF
+kubeconfig="$work/kubeconfig"
+kind get kubeconfig --name "$CLUSTER" >"$kubeconfig"
+go run ./cmd/tropis capture --kubeconfig "$kubeconfig" --namespace "$NS" \
+	--scenario stable-defects-config-crash --variant npd-absent \
+	--node "$node" --inventory "$work/inventory.yaml" --out "$work/corpus" --alerts-file /dev/null
+go run ./cmd/tropis eval --corpus "$work/corpus" --backend mock --out "$work/results" --quiet
+grep -q '"synthetic": false' "$work/results/results.json" || { echo "the capture was not recorded as real"; exit 1; }
+rm -rf "$work"
+echo ok
+
 echo
 echo "kind end-to-end check passed"

@@ -11,6 +11,7 @@ Tropis ships its accuracy numbers, and this directory is how they are made.
 | `runner/` | Replays a corpus, withholding labels, and scores it |
 | `report/` | Renders results for people |
 | `devcorpus/` | Generates `testdata/` from the scenario definitions |
+| `capture/` | `tropis capture`: turns a live node, mid-fault, into a fixture and label, refusing any that would misdescribe itself |
 
 ## Running
 

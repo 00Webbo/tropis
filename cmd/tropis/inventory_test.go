@@ -131,3 +131,15 @@ func TestAnalyzeUsage(t *testing.T) {
 		t.Errorf("analyze without a node: exit %d", code)
 	}
 }
+
+func TestCaptureUsage(t *testing.T) {
+	code, _, stderr := runCmd("capture", "--scenario", "read-errors-postgres")
+	if code != exitUsage || !strings.Contains(stderr, "--variant") {
+		t.Errorf("exit %d, %q", code, stderr)
+	}
+	code, _, stderr = runCmd("capture", "--scenario", "no-such", "--variant", "npd-absent",
+		"--node", "worker-02", "--inventory", example)
+	if code == exitOK || !strings.Contains(stderr, "no scenario") {
+		t.Errorf("unknown scenario: exit %d, %q", code, stderr)
+	}
+}

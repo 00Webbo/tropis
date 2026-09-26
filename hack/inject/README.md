@@ -63,13 +63,23 @@ difference impossible to lose.
    Workloads under test use the mountpoint through a `hostPath` or local
    PersistentVolume.
 
-4. Inject, capture, stop:
+4. Inject, wait for symptoms, capture while the fault is active, then stop:
 
    ```sh
    hack/inject/read-errors.sh start > fault.json
-   # ... let symptoms develop, then capture the fixture ...
-   hack/inject/read-errors.sh stop > fault.json
+   # ... let the workload hit the fault ...
+   tropis capture --scenario read-errors-postgres --variant npd-absent \
+     --node worker-02 --disk sacrificial --inventory rig.yaml \
+     --injection fault.json --prometheus http://prometheus.monitoring:9090
+   hack/inject/read-errors.sh stop
    ```
+
+   Capture runs before `stop` because stopping removes the fault, and with
+   it the state the fixture exists to record. `tropis capture` refuses to
+   write a fixture that would misdescribe itself: a `real-sata` scenario
+   whose injection only emulated SMART, an NPD variant that does not match
+   what is on the node, or a fault type the scenario does not expect.
+   Repeat with NPD installed for the `npd-present` variant.
 
 The device-mapper faults swap the pass-through device's table live, so a
 fault begins under a running workload, exactly as a disk failing in service

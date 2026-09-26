@@ -190,3 +190,13 @@ func (s Scenario) Label() schema.Label {
 		Notes:          strings.TrimSpace(s.Description),
 	}
 }
+
+// Find returns the scenario with the given ID.
+func Find(all []Scenario, id string) (Scenario, error) {
+	for _, s := range all {
+		if s.ID == id {
+			return s, nil
+		}
+	}
+	return Scenario{}, fmt.Errorf("no scenario %q in scenarios.yaml", id)
+}
