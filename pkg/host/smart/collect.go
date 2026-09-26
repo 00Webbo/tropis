@@ -201,3 +201,37 @@ func classifyRunError(err error) FailureReason {
 		return FailureOther
 	}
 }
+
+// CollectRaw returns the verbatim `smartctl -j -a` output for each device,
+// keyed by device path, exactly as a fixture stores it.
+//
+// Analysis consumes raw output rather than parsed Devices so that live
+// analysis and fixture replay share one parsing path: a fixture is then a
+// faithful stand-in for a live node, and the parser is exercised on replay.
+//
+// Devices whose output is empty are omitted; everything else, including
+// smartctl's own error envelopes, is returned for the parser to classify.
+func (c *Collector) CollectRaw(ctx context.Context, paths []string) (map[string][]byte, error) {
+	if err := c.Available(ctx); err != nil {
+		return nil, err
+	}
+	if len(paths) == 0 {
+		scanned, err := c.Scan(ctx)
+		if err != nil {
+			return nil, err
+		}
+		paths = scanned
+	}
+	out := make(map[string][]byte, len(paths))
+	for _, path := range paths {
+		if err := ctx.Err(); err != nil {
+			return out, err
+		}
+		data, err := c.run(ctx, "-j", "-a", path)
+		if err != nil || len(strings.TrimSpace(string(data))) == 0 {
+			continue
+		}
+		out[path] = data
+	}
+	return out, nil
+}
