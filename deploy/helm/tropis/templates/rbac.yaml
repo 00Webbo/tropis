@@ -1,0 +1,68 @@
+# RBAC for Tropis.
+#
+# Tropis is read-only. The analyser may get, list and watch the resources it
+# diagnoses, and may write exactly one kind of object: its own
+# NodeHealthReport. The host collector gets no API permissions at all.
+#
+# deploy/rbac_test.go fails the build if any other write verb appears here.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "tropis.fullname" . }}-analyzer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tropis.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analyzer
+---
+# The collector runs on every node with device access. It never talks to the
+# API server, so it gets no token.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "tropis.fullname" . }}-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tropis.labels" . | nindent 4 }}
+    app.kubernetes.io/component: collector
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "tropis.fullname" . }}-analyzer
+  labels:
+    {{- include "tropis.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analyzer
+rules:
+  # The Kubernetes layer of a node: the node itself, its pods, their events.
+  - apiGroups: [""]
+    resources: ["nodes", "pods", "events"]
+    verbs: ["get", "list", "watch"]
+  # Container logs, current and previous, for unhealthy containers only.
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  # Tropis's own output, and the only thing it writes.
+  - apiGroups: ["tropis.io"]
+    resources: ["nodehealthreports"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["tropis.io"]
+    resources: ["nodehealthreports/status"]
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "tropis.fullname" . }}-analyzer
+  labels:
+    {{- include "tropis.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analyzer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "tropis.fullname" . }}-analyzer
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "tropis.fullname" . }}-analyzer
+    namespace: {{ .Release.Namespace }}
