@@ -66,3 +66,13 @@ func TestUsage(t *testing.T) {
 		t.Errorf("unknown command: exit %d, %q", code, errOut)
 	}
 }
+
+func TestInventoryNode(t *testing.T) {
+	code, out, _ := runCmd("inventory", "node", "--inventory", example, "--node", "worker-02")
+	if code != exitOK || !strings.HasPrefix(out, "worker-02\tworker\t192.0.2.12") {
+		t.Errorf("exit %d, %q", code, out)
+	}
+	if code, _, _ := runCmd("inventory", "node", "--inventory", example, "--node", "ghost"); code == exitOK {
+		t.Error("unknown node should fail")
+	}
+}

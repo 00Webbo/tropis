@@ -11,6 +11,7 @@ import (
 const inventoryUsage = `usage:
   tropis inventory validate <file>
   tropis inventory target --inventory <file> --node <name> --disk <id> [--field target|device|mountpoint|transport|address]
+  tropis inventory node --inventory <file> --node <name>
 `
 
 func runInventory(args []string, stdout, stderr io.Writer) int {
@@ -75,6 +76,29 @@ func runInventory(args []string, stdout, stderr io.Writer) int {
 			return fail(stderr, "unknown field %q", *field)
 		}
 		fmt.Fprintln(stdout, v)
+		return exitOK
+
+	case "node":
+		fs := flag.NewFlagSet("inventory node", flag.ContinueOnError)
+		fs.SetOutput(stderr)
+		file := fs.String("inventory", "", "inventory file")
+		node := fs.String("node", "", "node name")
+		if err := fs.Parse(args[1:]); err != nil {
+			return exitUsage
+		}
+		if *file == "" || *node == "" {
+			fmt.Fprint(stderr, inventoryUsage)
+			return exitUsage
+		}
+		inv, err := inventory.Load(*file)
+		if err != nil {
+			return fail(stderr, "%v", err)
+		}
+		n, err := inv.Node(*node)
+		if err != nil {
+			return fail(stderr, "%v", err)
+		}
+		fmt.Fprintf(stdout, "%s\t%s\t%s\n", n.Name, n.Role, n.Address)
 		return exitOK
 
 	default:
