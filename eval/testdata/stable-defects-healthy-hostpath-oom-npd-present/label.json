@@ -1,0 +1,5 @@
+{
+  "scenarioId": "stable-defects-healthy-hostpath-oom",
+  "relationship": "coincidental",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. A pod whose data is on a hostPath on the defective disk is OOMKilled. The storage path exists, which tempts a causal answer, but the termination reason is memory and the defect count is not moving."
+}

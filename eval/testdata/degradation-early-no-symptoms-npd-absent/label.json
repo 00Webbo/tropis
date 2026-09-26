@@ -1,0 +1,6 @@
+{
+  "scenarioId": "degradation-early-no-symptoms",
+  "relationship": "insufficient_evidence",
+  "faultType": "disk.progressive_degradation",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. Reallocated sectors have started to grow, but no workload has been affected yet."
+}

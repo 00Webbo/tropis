@@ -1,0 +1,458 @@
+{
+  "version": "v1alpha1",
+  "scenarioId": "containerd-kill-stable-defects",
+  "variant": "npd-absent",
+  "capturedAt": "2026-09-01T23:00:00Z",
+  "node": "worker-02",
+  "environment": {
+    "kernel": "6.8.0-45-generic",
+    "osRelease": "Ubuntu 24.04.1 LTS",
+    "kubernetesVersion": "v1.31.2",
+    "containerRuntime": "containerd://1.7.22",
+    "diskModel": "Synthetic HDD 2TB",
+    "diskTransport": "sata",
+    "npdPresent": false
+  },
+  "host": {
+    "smart": {
+      "/dev/sdb": {
+        "ata_smart_attributes": {
+          "revision": 10,
+          "table": [
+            {
+              "flags": {
+                "prefailure": true,
+                "updated_online": true
+              },
+              "id": 5,
+              "name": "Reallocated_Sector_Ct",
+              "raw": {
+                "string": "112",
+                "value": 112
+              },
+              "thresh": 36,
+              "value": 95,
+              "when_failed": "",
+              "worst": 95
+            },
+            {
+              "flags": {
+                "prefailure": false,
+                "updated_online": true
+              },
+              "id": 9,
+              "name": "Power_On_Hours",
+              "raw": {
+                "string": "31023",
+                "value": 31023
+              },
+              "thresh": 0,
+              "value": 60,
+              "when_failed": "",
+              "worst": 60
+            },
+            {
+              "flags": {
+                "prefailure": false,
+                "updated_online": true
+              },
+              "id": 187,
+              "name": "Reported_Uncorrect",
+              "raw": {
+                "string": "0",
+                "value": 0
+              },
+              "thresh": 0,
+              "value": 100,
+              "when_failed": "",
+              "worst": 100
+            },
+            {
+              "flags": {
+                "prefailure": false,
+                "updated_online": true
+              },
+              "id": 194,
+              "name": "Temperature_Celsius",
+              "raw": {
+                "string": "38",
+                "value": 38
+              },
+              "thresh": 0,
+              "value": 38,
+              "when_failed": "",
+              "worst": 38
+            },
+            {
+              "flags": {
+                "prefailure": false,
+                "updated_online": true
+              },
+              "id": 197,
+              "name": "Current_Pending_Sector",
+              "raw": {
+                "string": "0",
+                "value": 0
+              },
+              "thresh": 0,
+              "value": 100,
+              "when_failed": "",
+              "worst": 100
+            },
+            {
+              "flags": {
+                "prefailure": false,
+                "updated_online": true
+              },
+              "id": 198,
+              "name": "Offline_Uncorrectable",
+              "raw": {
+                "string": "0",
+                "value": 0
+              },
+              "thresh": 0,
+              "value": 100,
+              "when_failed": "",
+              "worst": 100
+            }
+          ]
+        },
+        "device": {
+          "info_name": "/dev/sdb [SAT]",
+          "name": "/dev/sdb",
+          "protocol": "ATA",
+          "type": "sat"
+        },
+        "firmware_version": "SYN1",
+        "json_format_version": [
+          1,
+          0
+        ],
+        "local_time": {
+          "time_t": 1788303600
+        },
+        "model_name": "Synthetic HDD 2TB",
+        "power_on_time": {
+          "hours": 31023
+        },
+        "rotation_rate": 7200,
+        "serial_number": "DEVCORPUS0001",
+        "smart_status": {
+          "passed": true
+        },
+        "smart_support": {
+          "available": true,
+          "enabled": true
+        },
+        "smartctl": {
+          "exit_status": 0,
+          "version": [
+            7,
+            4
+          ]
+        },
+        "temperature": {
+          "current": 38
+        },
+        "user_capacity": {
+          "blocks": 3907029168,
+          "bytes": 2000398934016
+        }
+      }
+    },
+    "collectedAt": "2026-09-01T23:00:00Z",
+    "previous": {
+      "smart": {
+        "/dev/sdb": {
+          "ata_smart_attributes": {
+            "revision": 10,
+            "table": [
+              {
+                "flags": {
+                  "prefailure": true,
+                  "updated_online": true
+                },
+                "id": 5,
+                "name": "Reallocated_Sector_Ct",
+                "raw": {
+                  "string": "112",
+                  "value": 112
+                },
+                "thresh": 36,
+                "value": 95,
+                "when_failed": "",
+                "worst": 95
+              },
+              {
+                "flags": {
+                  "prefailure": false,
+                  "updated_online": true
+                },
+                "id": 9,
+                "name": "Power_On_Hours",
+                "raw": {
+                  "string": "30999",
+                  "value": 30999
+                },
+                "thresh": 0,
+                "value": 60,
+                "when_failed": "",
+                "worst": 60
+              },
+              {
+                "flags": {
+                  "prefailure": false,
+                  "updated_online": true
+                },
+                "id": 187,
+                "name": "Reported_Uncorrect",
+                "raw": {
+                  "string": "0",
+                  "value": 0
+                },
+                "thresh": 0,
+                "value": 100,
+                "when_failed": "",
+                "worst": 100
+              },
+              {
+                "flags": {
+                  "prefailure": false,
+                  "updated_online": true
+                },
+                "id": 194,
+                "name": "Temperature_Celsius",
+                "raw": {
+                  "string": "38",
+                  "value": 38
+                },
+                "thresh": 0,
+                "value": 38,
+                "when_failed": "",
+                "worst": 38
+              },
+              {
+                "flags": {
+                  "prefailure": false,
+                  "updated_online": true
+                },
+                "id": 197,
+                "name": "Current_Pending_Sector",
+                "raw": {
+                  "string": "0",
+                  "value": 0
+                },
+                "thresh": 0,
+                "value": 100,
+                "when_failed": "",
+                "worst": 100
+              },
+              {
+                "flags": {
+                  "prefailure": false,
+                  "updated_online": true
+                },
+                "id": 198,
+                "name": "Offline_Uncorrectable",
+                "raw": {
+                  "string": "0",
+                  "value": 0
+                },
+                "thresh": 0,
+                "value": 100,
+                "when_failed": "",
+                "worst": 100
+              }
+            ]
+          },
+          "device": {
+            "info_name": "/dev/sdb [SAT]",
+            "name": "/dev/sdb",
+            "protocol": "ATA",
+            "type": "sat"
+          },
+          "firmware_version": "SYN1",
+          "json_format_version": [
+            1,
+            0
+          ],
+          "local_time": {
+            "time_t": 1788217200
+          },
+          "model_name": "Synthetic HDD 2TB",
+          "power_on_time": {
+            "hours": 30999
+          },
+          "rotation_rate": 7200,
+          "serial_number": "DEVCORPUS0001",
+          "smart_status": {
+            "passed": true
+          },
+          "smart_support": {
+            "available": true,
+            "enabled": true
+          },
+          "smartctl": {
+            "exit_status": 0,
+            "version": [
+              7,
+              4
+            ]
+          },
+          "temperature": {
+            "current": 38
+          },
+          "user_capacity": {
+            "blocks": 3907029168,
+            "bytes": 2000398934016
+          }
+        }
+      },
+      "collectedAt": "2026-08-31T23:00:00Z"
+    }
+  },
+  "kubernetes": {
+    "nodeJson": {
+      "kind": "Node",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "worker-02",
+        "labels": {
+          "kubernetes.io/hostname": "worker-02"
+        }
+      },
+      "spec": {},
+      "status": {
+        "conditions": [
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastHeartbeatTime": null,
+            "lastTransitionTime": "2026-08-29T23:00:00Z",
+            "reason": "KubeletReady"
+          },
+          {
+            "type": "DiskPressure",
+            "status": "False",
+            "lastHeartbeatTime": null,
+            "lastTransitionTime": "2026-09-01T22:30:00Z",
+            "reason": "KubeletHasNoDiskPressure"
+          },
+          {
+            "type": "MemoryPressure",
+            "status": "False",
+            "lastHeartbeatTime": null,
+            "lastTransitionTime": null,
+            "reason": "KubeletHasSufficientMemory"
+          }
+        ],
+        "daemonEndpoints": {
+          "kubeletEndpoint": {
+            "Port": 0
+          }
+        },
+        "nodeInfo": {
+          "machineID": "",
+          "systemUUID": "",
+          "bootID": "",
+          "kernelVersion": "6.8.0-45-generic",
+          "osImage": "",
+          "containerRuntimeVersion": "containerd://1.7.22",
+          "kubeletVersion": "v1.31.2",
+          "kubeProxyVersion": "",
+          "operatingSystem": "",
+          "architecture": ""
+        }
+      }
+    },
+    "pods": [
+      {
+        "kind": "Pod",
+        "apiVersion": "v1",
+        "metadata": {
+          "name": "checkout",
+          "namespace": "tropis-eval",
+          "uid": "pod-checkout"
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "config",
+              "configMap": {
+                "name": "checkout-config"
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "api",
+              "resources": {
+                "limits": {
+                  "memory": "512Mi"
+                },
+                "requests": {
+                  "cpu": "100m",
+                  "memory": "64Mi"
+                }
+              }
+            }
+          ],
+          "nodeName": "worker-02"
+        },
+        "status": {
+          "phase": "Pending",
+          "startTime": "2026-09-01T21:00:00Z",
+          "containerStatuses": [
+            {
+              "name": "api",
+              "state": {
+                "waiting": {
+                  "reason": "ContainerCreating"
+                }
+              },
+              "lastState": {},
+              "ready": false,
+              "restartCount": 0,
+              "image": "",
+              "imageID": ""
+            }
+          ]
+        }
+      }
+    ],
+    "events": [
+      {
+        "kind": "Event",
+        "apiVersion": "v1",
+        "metadata": {
+          "name": "checkout.containerd-kill-stable-defects-sandbox",
+          "namespace": "tropis-eval",
+          "uid": "event-containerd-kill-stable-defects-sandbox"
+        },
+        "involvedObject": {
+          "kind": "Pod",
+          "namespace": "tropis-eval",
+          "name": "checkout"
+        },
+        "reason": "FailedCreatePodSandBox",
+        "message": "Failed to create pod sandbox: rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing: dial unix /run/containerd/containerd.sock: connect: connection refused\"",
+        "source": {},
+        "firstTimestamp": null,
+        "lastTimestamp": "2026-09-01T22:58:00Z",
+        "count": 11,
+        "type": "Warning",
+        "eventTime": null,
+        "reportingComponent": "",
+        "reportingInstance": ""
+      }
+    ],
+    "collectedAt": "2026-09-01T23:00:00Z"
+  },
+  "baseline": {
+    "prometheusAlerts": [
+      "KubePodNotReady"
+    ],
+    "k8sgptOutput": "Pod tropis-eval/checkout: failed to create pod sandbox: containerd.sock connection refused."
+  },
+  "synthetic": true
+}

@@ -1,0 +1,7 @@
+{
+  "scenarioId": "read-errors-batch",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.read_errors",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. A batch reader hits unreadable blocks in its input dataset and fails; SMART is clean."
+}

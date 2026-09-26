@@ -1,0 +1,7 @@
+{
+  "scenarioId": "write-errors-readonly-remount",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.write_errors",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. Journal writes fail, ext4 aborts the journal and remounts read-only; the workload fails with \"Read-only file system\"."
+}

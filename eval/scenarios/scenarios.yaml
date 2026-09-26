@@ -1,0 +1,345 @@
+# Tropis evaluation scenarios: the capture plan.
+#
+# Each scenario is captured twice on the rig, with node-problem-detector
+# installed and without. Positives and negative controls live in this one file
+# and are captured in the same pass; see scenarios.go for why.
+#
+# Two kinds of positive are deliberately kept apart:
+#
+#   - SMART-visible faults (hardware: [real-sata]) change the drive's own
+#     SMART counters. Only real SATA hardware can produce these; see
+#     hack/inject/pending-sectors.sh.
+#   - Device-mapper faults produce genuine I/O errors, hangs and corruption
+#     while SMART stays clean — as a failing cable, controller or backplane
+#     does. They are real host-layer faults, labelled as such, and they
+#     measure how Tropis does when the host signal it reads (v1: SMART only)
+#     has nothing to say.
+#
+# `synthetic` hints are used only to generate the development corpus under
+# eval/testdata. They are never used on the rig.
+scenarios:
+
+  # --- Causal, host layer, SMART-visible (real SATA only) --------------------
+
+  - id: pending-sectors-postgres
+    description: >
+      Pending sectors appear under postgres's data directory, which is a
+      hostPath on the target disk. Reads of the marked sectors fail and
+      postgres panics on fsync. Timing, storage path and symptom all connect.
+    faultType: disk.pending_sectors
+    inject: {script: pending-sectors.sh}
+    workload: postgres-hostpath
+    hardware: [real-sata]
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: pending-new, workload: fsync-panic}
+
+  - id: pending-sectors-log-writer
+    description: >
+      A log-writing service on a hostPath hits newly pending sectors and
+      crash-loops on read I/O errors when replaying its segment files.
+    faultType: disk.pending_sectors
+    inject: {script: pending-sectors.sh}
+    workload: log-writer-hostpath
+    hardware: [real-sata]
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: pending-new, workload: io-error-crashloop}
+
+  - id: pending-sectors-batch-reader
+    description: >
+      A batch job reading a dataset from the target disk fails on the pending
+      sectors and retries into CrashLoopBackOff.
+    faultType: disk.pending_sectors
+    inject: {script: pending-sectors.sh}
+    workload: batch-reader-hostpath
+    hardware: [real-sata]
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: pending-new, workload: io-error-crashloop}
+
+  - id: pending-sectors-slow-probes
+    description: >
+      Pending sectors make the drive retry internally; reads stall for
+      seconds and postgres's liveness probe times out and restarts it.
+    faultType: disk.pending_sectors
+    inject: {script: pending-sectors.sh}
+    workload: postgres-hostpath
+    hardware: [real-sata]
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: pending-new, workload: probe-timeouts}
+
+  - id: degradation-postgres-gradual
+    description: >
+      Bad sectors accumulate over the capture window; the reallocated count
+      rises between the previous and current reading and postgres starts
+      failing reads.
+    faultType: disk.progressive_degradation
+    inject: {script: degradation.sh, params: {STEP: "4", INTERVAL: "300"}}
+    workload: postgres-hostpath
+    hardware: [real-sata]
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: realloc-growing, workload: io-error-crashloop}
+
+  - id: degradation-minio
+    description: >
+      Gradual degradation under an object store on a hostPath: growing
+      reallocated sectors and object reads failing with I/O errors.
+    faultType: disk.progressive_degradation
+    inject: {script: degradation.sh, params: {STEP: "4", INTERVAL: "300"}}
+    workload: minio-hostpath
+    hardware: [real-sata]
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: realloc-growing, workload: io-error-crashloop}
+
+  - id: degradation-fsync
+    description: >
+      Gradual degradation reaches the database's write-ahead log; fsync fails
+      with EIO and the database refuses to continue.
+    faultType: disk.progressive_degradation
+    inject: {script: degradation.sh, params: {STEP: "8", INTERVAL: "120"}}
+    workload: postgres-hostpath
+    hardware: [real-sata]
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: realloc-growing, workload: fsync-panic}
+
+  - id: degradation-slow-probes
+    description: >
+      A degrading drive retries internally; I/O latency climbs and the log
+      writer's probes time out before any hard error is logged.
+    faultType: disk.progressive_degradation
+    inject: {script: degradation.sh, params: {STEP: "4", INTERVAL: "300"}}
+    workload: log-writer-hostpath
+    hardware: [real-sata]
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: realloc-growing, workload: probe-timeouts}
+
+  # --- Causal, host layer, SMART clean (device-mapper) -----------------------
+
+  - id: read-errors-postgres
+    description: >
+      Reads of postgres's data blocks fail with EIO. SMART is clean, as it is
+      for a failing cable or controller; the evidence is the I/O errors in a
+      workload whose storage is a hostPath on the target disk.
+    faultType: disk.read_errors
+    inject: {script: read-errors.sh}
+    workload: postgres-hostpath
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: healthy, workload: io-error-crashloop}
+
+  - id: read-errors-with-stable-defects
+    description: >
+      A trap for the coincidental reflex: the disk carries an old, stable
+      reallocated count, and there are also genuine read errors under the
+      workload now. The stable count is not the story, but the disk is.
+    faultType: disk.read_errors
+    inject: {script: read-errors.sh}
+    workload: log-writer-hostpath
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: realloc-stable, workload: io-error-crashloop}
+
+  - id: write-errors-postgres
+    description: >
+      Writes to the target disk fail while reads succeed; postgres panics on
+      fsync of its WAL. SMART is clean.
+    faultType: disk.write_errors
+    inject: {script: write-errors.sh}
+    workload: postgres-hostpath
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: healthy, workload: fsync-panic}
+
+  - id: write-errors-intermittent-uploads
+    description: >
+      Writes fail intermittently (five seconds in every thirty); an upload
+      service logs sporadic I/O errors and restarts occasionally.
+    faultType: disk.write_errors
+    inject: {script: write-errors.sh, params: {UP_SECS: "25", DOWN_SECS: "5"}}
+    workload: minio-hostpath
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: healthy, workload: io-error-crashloop}
+
+  - id: write-errors-readonly-remount
+    description: >
+      Journal writes fail, ext4 aborts the journal and remounts read-only;
+      the workload fails with "Read-only file system".
+    faultType: disk.write_errors
+    inject: {script: write-errors.sh}
+    workload: log-writer-hostpath
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: healthy, workload: readonly-fs, npd: readonly-fs}
+
+  - id: io-timeout-postgres-probes
+    description: >
+      Every I/O is held for thirty seconds; postgres stalls, its liveness
+      probe times out and the kubelet restarts it repeatedly.
+    faultType: disk.io_timeout
+    inject: {script: io-timeouts.sh}
+    workload: postgres-hostpath
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: healthy, workload: probe-timeouts}
+
+  - id: io-timeout-log-writer
+    description: >
+      Storage latency on the target disk makes a log writer's writes time
+      out with context deadline exceeded.
+    faultType: disk.io_timeout
+    inject: {script: io-timeouts.sh, params: {DELAY_MS: "15000"}}
+    workload: log-writer-hostpath
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: healthy, workload: probe-timeouts}
+
+  - id: fs-corruption-readonly
+    description: >
+      An inode under the workload's directory is corrupted; ext4 reports the
+      checksum failure and remounts read-only.
+    faultType: disk.fs_corruption
+    inject: {script: fs-corruption.sh}
+    workload: log-writer-hostpath
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: healthy, workload: readonly-fs, npd: readonly-fs}
+
+  - id: fs-corruption-app-errors
+    description: >
+      A data file's inode is corrupted; the application fails reading it with
+      "Structure needs cleaning" and crash-loops.
+    faultType: disk.fs_corruption
+    inject: {script: fs-corruption.sh}
+    workload: batch-reader-hostpath
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: healthy, workload: fs-corrupt}
+
+  - id: read-errors-batch
+    description: >
+      A batch reader hits unreadable blocks in its input dataset and fails;
+      SMART is clean.
+    faultType: disk.read_errors
+    inject: {script: read-errors.sh}
+    workload: batch-reader-hostpath
+    expected: {relationship: causal, rootCauseLayer: host}
+    synthetic: {smart: healthy, workload: io-error-crashloop}
+
+  # --- Causal, Kubernetes layer -----------------------------------------------
+
+  - id: exhaustion-log-spam
+    description: >
+      A pod writing unbounded logs to a hostPath fills the node's disk; the
+      kubelet reports DiskPressure and evicts other pods. The disk hardware is
+      healthy — the workload is the cause of the host-layer symptom.
+    faultType: disk.exhaustion
+    inject: {script: disk-exhaustion.sh}
+    workload: disk-filler
+    expected: {relationship: causal, rootCauseLayer: kubernetes}
+    synthetic: {smart: healthy, workload: evictions}
+
+  - id: exhaustion-emptydir
+    description: >
+      An emptyDir on the target filesystem is filled by a runaway job,
+      producing DiskPressure and ephemeral-storage evictions.
+    faultType: disk.exhaustion
+    inject: {script: disk-exhaustion.sh}
+    workload: disk-filler
+    expected: {relationship: causal, rootCauseLayer: kubernetes}
+    synthetic: {smart: healthy, workload: evictions}
+
+  # --- Negative controls: coincidental -----------------------------------------
+
+  - id: stable-defects-config-crash
+    description: >
+      The disk has carried the same reallocated count for over a day, nothing
+      pending. A web pod crash-loops on a missing environment variable and uses
+      only configMap volumes. Both are real; they are unrelated.
+    workload: config-crash
+    expected: {relationship: coincidental}
+    synthetic: {smart: realloc-stable, workload: config-crash}
+
+  - id: stable-defects-oom
+    description: >
+      Stable reallocated sectors on the disk; a pod is OOMKilled under a tight
+      memory limit. Unrelated.
+    workload: memory-hog
+    expected: {relationship: coincidental}
+    synthetic: {smart: realloc-stable, workload: oom}
+
+  - id: pending-sectors-unrelated-oom
+    description: >
+      An active disk fault — new pending sectors — alongside a pod that is
+      OOMKilled and whose storage is not on the disk. Both real, both
+      current, unrelated.
+    faultType: disk.pending_sectors
+    inject: {script: pending-sectors.sh}
+    workload: memory-hog
+    hardware: [real-sata]
+    expected: {relationship: coincidental}
+    synthetic: {smart: pending-new, workload: oom}
+
+  - id: containerd-kill-stable-defects
+    description: >
+      containerd is killed repeatedly and pods fail to start with sandbox
+      errors; the disk carries old, stable defects. The runtime explains the
+      pods; the disk does not.
+    faultType: runtime.containerd_kill
+    inject: {script: containerd-kill.sh, params: {KILLS: "5", INTERVAL: "60"}}
+    workload: config-crash
+    expected: {relationship: coincidental}
+    synthetic: {smart: realloc-stable, workload: runtime-down, npd: containerd-restart}
+
+  - id: read-errors-unused-region-config-crash
+    description: >
+      Read errors are injected in a region of the disk no workload touches,
+      while a pod crash-loops on a configuration error. The fault is real and
+      so is the crash, and nothing connects them.
+    faultType: disk.read_errors
+    inject: {script: read-errors.sh}
+    workload: config-crash
+    expected: {relationship: coincidental}
+    synthetic: {smart: healthy, workload: config-crash}
+
+  - id: stable-defects-healthy-hostpath-oom
+    description: >
+      A pod whose data is on a hostPath on the defective disk is OOMKilled.
+      The storage path exists, which tempts a causal answer, but the
+      termination reason is memory and the defect count is not moving.
+    workload: memory-hog
+    expected: {relationship: coincidental}
+    synthetic: {smart: realloc-stable, workload: oom}
+
+  # --- Insufficient evidence -----------------------------------------------------
+
+  - id: pending-no-symptoms
+    description: >
+      New pending sectors, but every workload is healthy. There is a host
+      finding and nothing to relate it to yet.
+    faultType: disk.pending_sectors
+    inject: {script: pending-sectors.sh}
+    workload: idle
+    hardware: [real-sata]
+    expected: {relationship: insufficient_evidence}
+    synthetic: {smart: pending-new, workload: healthy}
+
+  - id: unreadable-smart-restarts
+    description: >
+      The collector cannot read SMART (the capability is withheld for this
+      capture), and a pod has been killed with exit 137 leaving no logs or
+      events. Nothing supports a judgement either way.
+    workload: batch-reader-hostpath
+    expected: {relationship: insufficient_evidence}
+    synthetic: {smart: unreadable, workload: silent-137}
+
+  - id: pending-silent-137
+    description: >
+      New pending sectors and a pod killed with exit 137, with no logs or
+      events to say whether it was an OOM kill or an I/O stall.
+    faultType: disk.pending_sectors
+    inject: {script: pending-sectors.sh}
+    workload: batch-reader-hostpath
+    hardware: [real-sata]
+    expected: {relationship: insufficient_evidence}
+    synthetic: {smart: pending-new, workload: silent-137}
+
+  - id: degradation-early-no-symptoms
+    description: >
+      Reallocated sectors have started to grow, but no workload has been
+      affected yet.
+    faultType: disk.progressive_degradation
+    inject: {script: degradation.sh, params: {STEP: "2", INTERVAL: "600"}}
+    workload: idle
+    hardware: [real-sata]
+    expected: {relationship: insufficient_evidence}
+    synthetic: {smart: realloc-growing, workload: healthy}

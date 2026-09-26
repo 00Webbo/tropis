@@ -1,0 +1,51 @@
+# A database whose data directory is a hostPath on the target disk, with a
+# sidecar writing continuously. Probes are tight enough that storage stalls
+# become restarts.
+apiVersion: v1
+kind: Namespace
+metadata: {name: tropis-eval}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: postgres-0
+  namespace: tropis-eval
+  labels: {app: postgres, tropis.io/eval: "true"}
+spec:
+  nodeSelector: {kubernetes.io/hostname: "${TROPIS_NODE}"}
+  containers:
+    - name: postgres
+      image: postgres:16
+      env:
+        - {name: POSTGRES_PASSWORD, value: eval-placeholder}
+        - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+      resources:
+        requests: {cpu: 250m, memory: 256Mi}
+        limits: {memory: 1Gi}
+      livenessProbe:
+        exec: {command: [pg_isready, -U, postgres]}
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 3
+      volumeMounts:
+        - {name: data, mountPath: /var/lib/postgresql/data}
+    - name: load
+      image: postgres:16
+      env:
+        - {name: PGPASSWORD, value: eval-placeholder}
+      command:
+        - sh
+        - -c
+        - |
+          until pg_isready -h 127.0.0.1 -U postgres; do sleep 1; done
+          psql -h 127.0.0.1 -U postgres -c "create table if not exists t (id serial, v text)"
+          while true; do
+            psql -h 127.0.0.1 -U postgres -c "insert into t (v) select md5(random()::text) from generate_series(1, 500)" || true
+            sleep 1
+          done
+      resources:
+        requests: {cpu: 50m, memory: 32Mi}
+        limits: {memory: 128Mi}
+  volumes:
+    - name: data
+      hostPath: {path: "${TROPIS_MOUNT}/postgres", type: DirectoryOrCreate}

@@ -1,0 +1,7 @@
+{
+  "scenarioId": "io-timeout-log-writer",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.io_timeout",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. Storage latency on the target disk makes a log writer's writes time out with context deadline exceeded."
+}

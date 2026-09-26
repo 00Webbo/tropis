@@ -1,0 +1,7 @@
+{
+  "scenarioId": "degradation-postgres-gradual",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.progressive_degradation",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. Bad sectors accumulate over the capture window; the reallocated count rises between the previous and current reading and postgres starts failing reads."
+}

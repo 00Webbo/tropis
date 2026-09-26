@@ -1,0 +1,7 @@
+{
+  "scenarioId": "pending-sectors-postgres",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.pending_sectors",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. Pending sectors appear under postgres's data directory, which is a hostPath on the target disk. Reads of the marked sectors fail and postgres panics on fsync. Timing, storage path and symptom all connect."
+}

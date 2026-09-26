@@ -1,0 +1,6 @@
+{
+  "scenarioId": "pending-sectors-unrelated-oom",
+  "relationship": "coincidental",
+  "faultType": "disk.pending_sectors",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. An active disk fault — new pending sectors — alongside a pod that is OOMKilled and whose storage is not on the disk. Both real, both current, unrelated."
+}

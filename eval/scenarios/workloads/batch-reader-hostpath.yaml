@@ -1,0 +1,39 @@
+# A job that reads a dataset from a hostPath end to end, repeatedly.
+apiVersion: v1
+kind: Namespace
+metadata: {name: tropis-eval}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: batch-reader
+  namespace: tropis-eval
+  labels: {tropis.io/eval: "true"}
+spec:
+  backoffLimit: 20
+  template:
+    metadata:
+      labels: {app: batch-reader, tropis.io/eval: "true"}
+    spec:
+      nodeSelector: {kubernetes.io/hostname: "${TROPIS_NODE}"}
+      restartPolicy: OnFailure
+      containers:
+        - name: reader
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              [ -f /data/dataset ] || dd if=/dev/urandom of=/data/dataset bs=1M count=256 conv=fsync
+              while true; do
+                md5sum /data/dataset || { echo "dataset read failed"; exit 1; }
+                sleep 5
+              done
+          resources:
+            requests: {cpu: 100m, memory: 32Mi}
+            limits: {memory: 128Mi}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+      volumes:
+        - name: data
+          hostPath: {path: "${TROPIS_MOUNT}/batch", type: DirectoryOrCreate}

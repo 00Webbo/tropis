@@ -1,0 +1,5 @@
+{
+  "scenarioId": "stable-defects-oom",
+  "relationship": "coincidental",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. Stable reallocated sectors on the disk; a pod is OOMKilled under a tight memory limit. Unrelated."
+}

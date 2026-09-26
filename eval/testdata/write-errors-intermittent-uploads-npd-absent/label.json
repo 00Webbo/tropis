@@ -1,0 +1,7 @@
+{
+  "scenarioId": "write-errors-intermittent-uploads",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.write_errors",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. Writes fail intermittently (five seconds in every thirty); an upload service logs sporadic I/O errors and restarts occasionally."
+}

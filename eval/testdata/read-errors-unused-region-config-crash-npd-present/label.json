@@ -1,0 +1,6 @@
+{
+  "scenarioId": "read-errors-unused-region-config-crash",
+  "relationship": "coincidental",
+  "faultType": "disk.read_errors",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. Read errors are injected in a region of the disk no workload touches, while a pod crash-loops on a configuration error. The fault is real and so is the crash, and nothing connects them."
+}

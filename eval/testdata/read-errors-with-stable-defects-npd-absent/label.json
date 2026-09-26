@@ -1,0 +1,7 @@
+{
+  "scenarioId": "read-errors-with-stable-defects",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.read_errors",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. A trap for the coincidental reflex: the disk carries an old, stable reallocated count, and there are also genuine read errors under the workload now. The stable count is not the story, but the disk is."
+}

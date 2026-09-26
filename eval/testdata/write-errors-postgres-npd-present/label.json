@@ -1,0 +1,7 @@
+{
+  "scenarioId": "write-errors-postgres",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.write_errors",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. Writes to the target disk fail while reads succeed; postgres panics on fsync of its WAL. SMART is clean."
+}

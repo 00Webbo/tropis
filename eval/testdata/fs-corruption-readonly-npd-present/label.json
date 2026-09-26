@@ -1,0 +1,7 @@
+{
+  "scenarioId": "fs-corruption-readonly",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.fs_corruption",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. An inode under the workload's directory is corrupted; ext4 reports the checksum failure and remounts read-only."
+}

@@ -1,0 +1,7 @@
+{
+  "scenarioId": "pending-sectors-log-writer",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.pending_sectors",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. A log-writing service on a hostPath hits newly pending sectors and crash-loops on read I/O errors when replaying its segment files."
+}

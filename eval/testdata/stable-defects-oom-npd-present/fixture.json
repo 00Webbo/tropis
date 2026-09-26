@@ -1,0 +1,489 @@
+{
+  "version": "v1alpha1",
+  "scenarioId": "stable-defects-oom",
+  "variant": "npd-present",
+  "capturedAt": "2026-09-01T21:00:00Z",
+  "node": "worker-02",
+  "environment": {
+    "kernel": "6.8.0-45-generic",
+    "osRelease": "Ubuntu 24.04.1 LTS",
+    "kubernetesVersion": "v1.31.2",
+    "containerRuntime": "containerd://1.7.22",
+    "diskModel": "Synthetic HDD 2TB",
+    "diskTransport": "sata",
+    "npdPresent": true,
+    "npdVersion": "v0.8.20"
+  },
+  "host": {
+    "smart": {
+      "/dev/sdb": {
+        "ata_smart_attributes": {
+          "revision": 10,
+          "table": [
+            {
+              "flags": {
+                "prefailure": true,
+                "updated_online": true
+              },
+              "id": 5,
+              "name": "Reallocated_Sector_Ct",
+              "raw": {
+                "string": "112",
+                "value": 112
+              },
+              "thresh": 36,
+              "value": 95,
+              "when_failed": "",
+              "worst": 95
+            },
+            {
+              "flags": {
+                "prefailure": false,
+                "updated_online": true
+              },
+              "id": 9,
+              "name": "Power_On_Hours",
+              "raw": {
+                "string": "31021",
+                "value": 31021
+              },
+              "thresh": 0,
+              "value": 60,
+              "when_failed": "",
+              "worst": 60
+            },
+            {
+              "flags": {
+                "prefailure": false,
+                "updated_online": true
+              },
+              "id": 187,
+              "name": "Reported_Uncorrect",
+              "raw": {
+                "string": "0",
+                "value": 0
+              },
+              "thresh": 0,
+              "value": 100,
+              "when_failed": "",
+              "worst": 100
+            },
+            {
+              "flags": {
+                "prefailure": false,
+                "updated_online": true
+              },
+              "id": 194,
+              "name": "Temperature_Celsius",
+              "raw": {
+                "string": "38",
+                "value": 38
+              },
+              "thresh": 0,
+              "value": 38,
+              "when_failed": "",
+              "worst": 38
+            },
+            {
+              "flags": {
+                "prefailure": false,
+                "updated_online": true
+              },
+              "id": 197,
+              "name": "Current_Pending_Sector",
+              "raw": {
+                "string": "0",
+                "value": 0
+              },
+              "thresh": 0,
+              "value": 100,
+              "when_failed": "",
+              "worst": 100
+            },
+            {
+              "flags": {
+                "prefailure": false,
+                "updated_online": true
+              },
+              "id": 198,
+              "name": "Offline_Uncorrectable",
+              "raw": {
+                "string": "0",
+                "value": 0
+              },
+              "thresh": 0,
+              "value": 100,
+              "when_failed": "",
+              "worst": 100
+            }
+          ]
+        },
+        "device": {
+          "info_name": "/dev/sdb [SAT]",
+          "name": "/dev/sdb",
+          "protocol": "ATA",
+          "type": "sat"
+        },
+        "firmware_version": "SYN1",
+        "json_format_version": [
+          1,
+          0
+        ],
+        "local_time": {
+          "time_t": 1788296400
+        },
+        "model_name": "Synthetic HDD 2TB",
+        "power_on_time": {
+          "hours": 31021
+        },
+        "rotation_rate": 7200,
+        "serial_number": "DEVCORPUS0001",
+        "smart_status": {
+          "passed": true
+        },
+        "smart_support": {
+          "available": true,
+          "enabled": true
+        },
+        "smartctl": {
+          "exit_status": 0,
+          "version": [
+            7,
+            4
+          ]
+        },
+        "temperature": {
+          "current": 38
+        },
+        "user_capacity": {
+          "blocks": 3907029168,
+          "bytes": 2000398934016
+        }
+      }
+    },
+    "collectedAt": "2026-09-01T21:00:00Z",
+    "previous": {
+      "smart": {
+        "/dev/sdb": {
+          "ata_smart_attributes": {
+            "revision": 10,
+            "table": [
+              {
+                "flags": {
+                  "prefailure": true,
+                  "updated_online": true
+                },
+                "id": 5,
+                "name": "Reallocated_Sector_Ct",
+                "raw": {
+                  "string": "112",
+                  "value": 112
+                },
+                "thresh": 36,
+                "value": 95,
+                "when_failed": "",
+                "worst": 95
+              },
+              {
+                "flags": {
+                  "prefailure": false,
+                  "updated_online": true
+                },
+                "id": 9,
+                "name": "Power_On_Hours",
+                "raw": {
+                  "string": "30997",
+                  "value": 30997
+                },
+                "thresh": 0,
+                "value": 60,
+                "when_failed": "",
+                "worst": 60
+              },
+              {
+                "flags": {
+                  "prefailure": false,
+                  "updated_online": true
+                },
+                "id": 187,
+                "name": "Reported_Uncorrect",
+                "raw": {
+                  "string": "0",
+                  "value": 0
+                },
+                "thresh": 0,
+                "value": 100,
+                "when_failed": "",
+                "worst": 100
+              },
+              {
+                "flags": {
+                  "prefailure": false,
+                  "updated_online": true
+                },
+                "id": 194,
+                "name": "Temperature_Celsius",
+                "raw": {
+                  "string": "38",
+                  "value": 38
+                },
+                "thresh": 0,
+                "value": 38,
+                "when_failed": "",
+                "worst": 38
+              },
+              {
+                "flags": {
+                  "prefailure": false,
+                  "updated_online": true
+                },
+                "id": 197,
+                "name": "Current_Pending_Sector",
+                "raw": {
+                  "string": "0",
+                  "value": 0
+                },
+                "thresh": 0,
+                "value": 100,
+                "when_failed": "",
+                "worst": 100
+              },
+              {
+                "flags": {
+                  "prefailure": false,
+                  "updated_online": true
+                },
+                "id": 198,
+                "name": "Offline_Uncorrectable",
+                "raw": {
+                  "string": "0",
+                  "value": 0
+                },
+                "thresh": 0,
+                "value": 100,
+                "when_failed": "",
+                "worst": 100
+              }
+            ]
+          },
+          "device": {
+            "info_name": "/dev/sdb [SAT]",
+            "name": "/dev/sdb",
+            "protocol": "ATA",
+            "type": "sat"
+          },
+          "firmware_version": "SYN1",
+          "json_format_version": [
+            1,
+            0
+          ],
+          "local_time": {
+            "time_t": 1788210000
+          },
+          "model_name": "Synthetic HDD 2TB",
+          "power_on_time": {
+            "hours": 30997
+          },
+          "rotation_rate": 7200,
+          "serial_number": "DEVCORPUS0001",
+          "smart_status": {
+            "passed": true
+          },
+          "smart_support": {
+            "available": true,
+            "enabled": true
+          },
+          "smartctl": {
+            "exit_status": 0,
+            "version": [
+              7,
+              4
+            ]
+          },
+          "temperature": {
+            "current": 38
+          },
+          "user_capacity": {
+            "blocks": 3907029168,
+            "bytes": 2000398934016
+          }
+        }
+      },
+      "collectedAt": "2026-08-31T21:00:00Z"
+    }
+  },
+  "kubernetes": {
+    "nodeJson": {
+      "kind": "Node",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "worker-02",
+        "labels": {
+          "kubernetes.io/hostname": "worker-02"
+        }
+      },
+      "spec": {},
+      "status": {
+        "conditions": [
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastHeartbeatTime": null,
+            "lastTransitionTime": "2026-08-29T21:00:00Z",
+            "reason": "KubeletReady"
+          },
+          {
+            "type": "DiskPressure",
+            "status": "False",
+            "lastHeartbeatTime": null,
+            "lastTransitionTime": "2026-09-01T20:30:00Z",
+            "reason": "KubeletHasNoDiskPressure"
+          },
+          {
+            "type": "MemoryPressure",
+            "status": "False",
+            "lastHeartbeatTime": null,
+            "lastTransitionTime": null,
+            "reason": "KubeletHasSufficientMemory"
+          }
+        ],
+        "daemonEndpoints": {
+          "kubeletEndpoint": {
+            "Port": 0
+          }
+        },
+        "nodeInfo": {
+          "machineID": "",
+          "systemUUID": "",
+          "bootID": "",
+          "kernelVersion": "6.8.0-45-generic",
+          "osImage": "",
+          "containerRuntimeVersion": "containerd://1.7.22",
+          "kubeletVersion": "v1.31.2",
+          "kubeProxyVersion": "",
+          "operatingSystem": "",
+          "architecture": ""
+        }
+      }
+    },
+    "pods": [
+      {
+        "kind": "Pod",
+        "apiVersion": "v1",
+        "metadata": {
+          "name": "cache-warmer",
+          "namespace": "tropis-eval",
+          "uid": "pod-cache-warmer"
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "data",
+              "hostPath": {
+                "path": "/mnt/disks/sacrificial/cache"
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "warmer",
+              "resources": {
+                "limits": {
+                  "memory": "128Mi"
+                },
+                "requests": {
+                  "cpu": "100m",
+                  "memory": "64Mi"
+                }
+              }
+            }
+          ],
+          "nodeName": "worker-02"
+        },
+        "status": {
+          "phase": "Running",
+          "startTime": "2026-09-01T19:00:00Z",
+          "containerStatuses": [
+            {
+              "name": "warmer",
+              "state": {
+                "waiting": {
+                  "reason": "CrashLoopBackOff",
+                  "message": "back-off 2m40s restarting failed container"
+                }
+              },
+              "lastState": {
+                "terminated": {
+                  "exitCode": 137,
+                  "reason": "OOMKilled",
+                  "startedAt": null,
+                  "finishedAt": "2026-09-01T20:57:00Z"
+                }
+              },
+              "ready": false,
+              "restartCount": 4,
+              "image": "",
+              "imageID": ""
+            }
+          ]
+        }
+      }
+    ],
+    "events": [
+      {
+        "kind": "Event",
+        "apiVersion": "v1",
+        "metadata": {
+          "name": "cache-warmer.stable-defects-oom-backoff",
+          "namespace": "tropis-eval",
+          "uid": "event-stable-defects-oom-backoff"
+        },
+        "involvedObject": {
+          "kind": "Pod",
+          "namespace": "tropis-eval",
+          "name": "cache-warmer"
+        },
+        "reason": "BackOff",
+        "message": "Back-off restarting failed container warmer in pod cache-warmer",
+        "source": {},
+        "firstTimestamp": null,
+        "lastTimestamp": "2026-09-01T20:58:00Z",
+        "count": 14,
+        "type": "Warning",
+        "eventTime": null,
+        "reportingComponent": "",
+        "reportingInstance": ""
+      }
+    ],
+    "logs": {
+      "tropis-eval/cache-warmer/warmer/previous": "2026-09-01T20:56:00Z warming cache: 64 MiB\n2026-09-01T20:56:01Z warming cache: 112 MiB\n"
+    },
+    "npdConditions": [
+      {
+        "type": "KernelDeadlock",
+        "status": "False",
+        "lastHeartbeatTime": null,
+        "lastTransitionTime": "2026-09-01T20:50:00Z",
+        "reason": "KernelHasNoDeadlock",
+        "message": "kernel has no deadlock"
+      },
+      {
+        "type": "ReadonlyFilesystem",
+        "status": "False",
+        "lastHeartbeatTime": null,
+        "lastTransitionTime": "2026-09-01T20:50:00Z",
+        "reason": "FilesystemIsNotReadOnly",
+        "message": "Filesystem is not read-only"
+      }
+    ],
+    "collectedAt": "2026-09-01T21:00:00Z"
+  },
+  "baseline": {
+    "prometheusAlerts": [
+      "KubePodCrashLooping",
+      "KubeContainerOOMKilled"
+    ],
+    "k8sgptOutput": "Pod tropis-eval/cache-warmer: container warmer was OOMKilled; memory limit 128Mi."
+  },
+  "synthetic": true
+}

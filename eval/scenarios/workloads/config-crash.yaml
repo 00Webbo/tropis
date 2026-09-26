@@ -1,0 +1,36 @@
+# A web service that crash-loops on a missing environment variable. Its only
+# volume is a configMap: it has no storage on any disk.
+apiVersion: v1
+kind: Namespace
+metadata: {name: tropis-eval}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: checkout-config, namespace: tropis-eval}
+data: {LOG_LEVEL: info}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: checkout
+  namespace: tropis-eval
+  labels: {app: checkout, tropis.io/eval: "true"}
+spec:
+  nodeSelector: {kubernetes.io/hostname: "${TROPIS_NODE}"}
+  containers:
+    - name: api
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - |
+          [ -n "$PAYMENTS_URL" ] || { echo "panic: required env PAYMENTS_URL is not set"; exit 1; }
+          sleep 3600
+      resources:
+        requests: {cpu: 10m, memory: 8Mi}
+        limits: {memory: 32Mi}
+      volumeMounts:
+        - {name: config, mountPath: /etc/checkout}
+  volumes:
+    - name: config
+      configMap: {name: checkout-config}

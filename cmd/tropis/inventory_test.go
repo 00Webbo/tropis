@@ -76,3 +76,33 @@ func TestInventoryNode(t *testing.T) {
 		t.Error("unknown node should fail")
 	}
 }
+
+func TestEvalCommand(t *testing.T) {
+	out := t.TempDir()
+	code, stdout, stderr := runCmd("eval", "--corpus", filepath.Join("..", "..", "eval", "testdata"),
+		"--backend", "mock", "--out", out, "--seed", "5", "--quiet",
+		"--inventory", example)
+	if code != exitOK {
+		t.Fatalf("exit %d\n%s\n%s", code, stdout, stderr)
+	}
+	for _, f := range []string{"results.json", "report.md"} {
+		if _, err := os.Stat(filepath.Join(out, f)); err != nil {
+			t.Errorf("%s not written: %v", f, err)
+		}
+	}
+	if !strings.Contains(stdout, "DEVELOPMENT CORPUS") || !strings.Contains(stdout, "gate: not_applicable") {
+		t.Errorf("stdout = %s", stdout)
+	}
+	report, _ := os.ReadFile(filepath.Join(out, "report.md"))
+	if !strings.Contains(string(report), "tropis-lab, Kubernetes v1.31.2, 3 nodes") {
+		t.Error("the rig from the inventory should be described in the report")
+	}
+}
+
+func TestEvalPublishableRefusesDevCorpus(t *testing.T) {
+	code, _, stderr := runCmd("eval", "--corpus", filepath.Join("..", "..", "eval", "testdata"),
+		"--backend", "mock", "--out", t.TempDir(), "--publishable", "--quiet")
+	if code == exitOK || !strings.Contains(stderr, "synthetic") {
+		t.Errorf("exit %d, %s", code, stderr)
+	}
+}

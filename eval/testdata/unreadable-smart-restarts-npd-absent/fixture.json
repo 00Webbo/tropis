@@ -1,0 +1,160 @@
+{
+  "version": "v1alpha1",
+  "scenarioId": "unreadable-smart-restarts",
+  "variant": "npd-absent",
+  "capturedAt": "2026-09-02T03:00:00Z",
+  "node": "worker-02",
+  "environment": {
+    "kernel": "6.8.0-45-generic",
+    "osRelease": "Ubuntu 24.04.1 LTS",
+    "kubernetesVersion": "v1.31.2",
+    "containerRuntime": "containerd://1.7.22",
+    "diskModel": "Synthetic HDD 2TB",
+    "diskTransport": "sata",
+    "npdPresent": false
+  },
+  "host": {
+    "smart": {
+      "/dev/sdb": {
+        "local_time": {
+          "time_t": 1788318000
+        },
+        "smartctl": {
+          "exit_status": 2,
+          "messages": [
+            {
+              "severity": "error",
+              "string": "Smartctl open device: /dev/sdb failed: Permission denied"
+            }
+          ],
+          "version": [
+            7,
+            4
+          ]
+        }
+      }
+    },
+    "collectedAt": "2026-09-02T03:00:00Z"
+  },
+  "kubernetes": {
+    "nodeJson": {
+      "kind": "Node",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "worker-02",
+        "labels": {
+          "kubernetes.io/hostname": "worker-02"
+        }
+      },
+      "spec": {},
+      "status": {
+        "conditions": [
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastHeartbeatTime": null,
+            "lastTransitionTime": "2026-08-30T03:00:00Z",
+            "reason": "KubeletReady"
+          },
+          {
+            "type": "DiskPressure",
+            "status": "False",
+            "lastHeartbeatTime": null,
+            "lastTransitionTime": "2026-09-02T02:30:00Z",
+            "reason": "KubeletHasNoDiskPressure"
+          },
+          {
+            "type": "MemoryPressure",
+            "status": "False",
+            "lastHeartbeatTime": null,
+            "lastTransitionTime": null,
+            "reason": "KubeletHasSufficientMemory"
+          }
+        ],
+        "daemonEndpoints": {
+          "kubeletEndpoint": {
+            "Port": 0
+          }
+        },
+        "nodeInfo": {
+          "machineID": "",
+          "systemUUID": "",
+          "bootID": "",
+          "kernelVersion": "6.8.0-45-generic",
+          "osImage": "",
+          "containerRuntimeVersion": "containerd://1.7.22",
+          "kubeletVersion": "v1.31.2",
+          "kubeProxyVersion": "",
+          "operatingSystem": "",
+          "architecture": ""
+        }
+      }
+    },
+    "pods": [
+      {
+        "kind": "Pod",
+        "apiVersion": "v1",
+        "metadata": {
+          "name": "batch-reader-x7k2p",
+          "namespace": "tropis-eval",
+          "uid": "pod-batch-reader-x7k2p"
+        },
+        "spec": {
+          "volumes": [
+            {
+              "name": "data",
+              "hostPath": {
+                "path": "/mnt/disks/sacrificial/batch"
+              }
+            }
+          ],
+          "containers": [
+            {
+              "name": "reader",
+              "resources": {
+                "limits": {
+                  "memory": "512Mi"
+                },
+                "requests": {
+                  "cpu": "100m",
+                  "memory": "64Mi"
+                }
+              }
+            }
+          ],
+          "nodeName": "worker-02"
+        },
+        "status": {
+          "phase": "Failed",
+          "startTime": "2026-09-02T01:00:00Z",
+          "containerStatuses": [
+            {
+              "name": "reader",
+              "state": {
+                "terminated": {
+                  "exitCode": 137,
+                  "reason": "Error",
+                  "startedAt": null,
+                  "finishedAt": "2026-09-02T02:58:00Z"
+                }
+              },
+              "lastState": {},
+              "ready": false,
+              "restartCount": 0,
+              "image": "",
+              "imageID": ""
+            }
+          ]
+        }
+      }
+    ],
+    "collectedAt": "2026-09-02T03:00:00Z"
+  },
+  "baseline": {
+    "prometheusAlerts": [
+      "KubeJobFailed"
+    ],
+    "k8sgptOutput": "Pod tropis-eval/batch-reader-x7k2p: terminated with exit code 137."
+  },
+  "synthetic": true
+}

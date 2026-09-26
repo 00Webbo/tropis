@@ -1,0 +1,6 @@
+{
+  "scenarioId": "pending-no-symptoms",
+  "relationship": "insufficient_evidence",
+  "faultType": "disk.pending_sectors",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. New pending sectors, but every workload is healthy. There is a host finding and nothing to relate it to yet."
+}
