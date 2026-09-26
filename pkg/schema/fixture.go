@@ -122,6 +122,21 @@ type HostCapture struct {
 
 	// CollectedAt is when the host capture was taken.
 	CollectedAt time.Time `json:"collectedAt"`
+
+	// Previous is an earlier capture of the same devices, when one exists.
+	//
+	// A single snapshot cannot distinguish a drive that has carried twelve
+	// reallocated sectors for a year from one that gained twelve this
+	// morning, and that distinction is exactly the line between a
+	// coincidental and a causal verdict. The collector keeps an hourly
+	// history and supplies the oldest reading it holds, up to a day back.
+	Previous *HostSnapshot `json:"previous,omitempty"`
+}
+
+// HostSnapshot is an earlier raw SMART capture.
+type HostSnapshot struct {
+	SMART       map[string]RawJSON `json:"smart"`
+	CollectedAt time.Time          `json:"collectedAt"`
 }
 
 // K8sCapture is the raw Kubernetes-layer state for one node.

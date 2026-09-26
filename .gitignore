@@ -1,8 +1,8 @@
 # Binaries
 /bin/
 /dist/
-tropis
-tropis-collector
+/tropis
+/tropis-collector
 *.exe
 
 # Test and coverage output
