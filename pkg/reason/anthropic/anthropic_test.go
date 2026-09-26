@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nathanwebb/tropis/pkg/reason"
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/reason"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 func input(t *testing.T) *reason.AnalysisInput {

@@ -23,7 +23,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 // Backend is a model provider able to produce a verdict.
@@ -52,5 +52,5 @@ var (
 )
 
 // AgentVersion is stamped on every verdict. Overridden at build time with
-// -ldflags "-X github.com/nathanwebb/tropis/pkg/reason.AgentVersion=v0.1.0".
+// -ldflags "-X github.com/00Webbo/tropis/pkg/reason.AgentVersion=v0.1.0".
 var AgentVersion = "dev"

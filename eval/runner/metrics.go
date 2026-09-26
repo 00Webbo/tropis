@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 // Gate thresholds, fixed in advance of any result. "Diagnostic accuracy is

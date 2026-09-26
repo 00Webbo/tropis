@@ -7,7 +7,7 @@ that is a bug — please open an issue.
 ## Reporting a vulnerability
 
 Report suspected vulnerabilities privately via GitHub's [private security
-advisory](https://github.com/nathanwebb/tropis/security/advisories/new)
+advisory](https://github.com/00Webbo/tropis/security/advisories/new)
 feature. Please do not open a public issue for a suspected vulnerability.
 
 We aim to acknowledge a report within 5 working days and to provide an

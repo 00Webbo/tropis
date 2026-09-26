@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nathanwebb/tropis/pkg/host/prefilter"
-	"github.com/nathanwebb/tropis/pkg/host/smart"
+	"github.com/00Webbo/tropis/pkg/host/prefilter"
+	"github.com/00Webbo/tropis/pkg/host/smart"
 )
 
 const usage = `usage: tropis-collector <command> [flags] [device...]

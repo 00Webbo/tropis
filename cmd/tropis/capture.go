@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nathanwebb/tropis/eval/capture"
-	"github.com/nathanwebb/tropis/eval/scenarios"
-	"github.com/nathanwebb/tropis/pkg/inventory"
-	"github.com/nathanwebb/tropis/pkg/k8s"
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/eval/capture"
+	"github.com/00Webbo/tropis/eval/scenarios"
+	"github.com/00Webbo/tropis/pkg/inventory"
+	"github.com/00Webbo/tropis/pkg/k8s"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 func init() {

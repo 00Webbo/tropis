@@ -9,10 +9,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/nathanwebb/tropis/pkg/fixture"
-	"github.com/nathanwebb/tropis/pkg/reason"
-	"github.com/nathanwebb/tropis/pkg/reason/mock"
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/fixture"
+	"github.com/00Webbo/tropis/pkg/reason"
+	"github.com/00Webbo/tropis/pkg/reason/mock"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 var devCorpus = filepath.Join("..", "testdata")

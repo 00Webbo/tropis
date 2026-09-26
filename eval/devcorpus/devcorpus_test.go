@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nathanwebb/tropis/eval/scenarios"
-	"github.com/nathanwebb/tropis/pkg/fixture"
-	"github.com/nathanwebb/tropis/pkg/reason"
+	"github.com/00Webbo/tropis/eval/scenarios"
+	"github.com/00Webbo/tropis/pkg/fixture"
+	"github.com/00Webbo/tropis/pkg/reason"
 )
 
 var committed = filepath.Join("..", "testdata")

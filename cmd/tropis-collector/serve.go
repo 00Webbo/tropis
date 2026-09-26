@@ -15,8 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nathanwebb/tropis/pkg/host/smart"
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/host/smart"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 // SMARTPath is the endpoint serving the node's host capture.

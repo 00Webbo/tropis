@@ -14,10 +14,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/nathanwebb/tropis/pkg/host/prefilter"
-	"github.com/nathanwebb/tropis/pkg/host/smart"
-	"github.com/nathanwebb/tropis/pkg/reason"
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/host/prefilter"
+	"github.com/00Webbo/tropis/pkg/host/smart"
+	"github.com/00Webbo/tropis/pkg/reason"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 // Prefilter runs the deterministic rules over raw captures exactly as the

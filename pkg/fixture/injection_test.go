@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 // A record in the exact shape hack/inject/lib.sh's emit prints for

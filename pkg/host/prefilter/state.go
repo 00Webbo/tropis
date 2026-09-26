@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nathanwebb/tropis/pkg/host/smart"
+	"github.com/00Webbo/tropis/pkg/host/smart"
 )
 
 // StateFile is the file, within a state directory, holding previous readings.

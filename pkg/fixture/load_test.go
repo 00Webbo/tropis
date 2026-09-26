@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 // writeScenario creates a scenario directory containing a fixture and,

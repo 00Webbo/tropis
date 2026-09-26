@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 // stub is a Backend returning a fixed result and counting calls.

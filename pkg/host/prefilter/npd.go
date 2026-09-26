@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/nathanwebb/tropis/pkg/host/smart"
+	"github.com/00Webbo/tropis/pkg/host/smart"
 )
 
 // NPD custom plugin protocol exit codes.

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 func main() {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nathanwebb/tropis/pkg/inventory"
+	"github.com/00Webbo/tropis/pkg/inventory"
 )
 
 const inventoryUsage = `usage:

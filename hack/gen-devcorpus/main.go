@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nathanwebb/tropis/eval/devcorpus"
-	"github.com/nathanwebb/tropis/eval/scenarios"
+	"github.com/00Webbo/tropis/eval/devcorpus"
+	"github.com/00Webbo/tropis/eval/scenarios"
 )
 
 func main() {

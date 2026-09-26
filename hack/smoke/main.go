@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nathanwebb/tropis/pkg/host/smart"
+	"github.com/00Webbo/tropis/pkg/host/smart"
 )
 
 func main() {

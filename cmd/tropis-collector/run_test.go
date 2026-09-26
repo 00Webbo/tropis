@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nathanwebb/tropis/pkg/host/prefilter"
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/host/prefilter"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 // sampleDir builds a --from-dir directory from committed smartctl samples,

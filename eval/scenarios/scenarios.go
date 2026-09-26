@@ -23,7 +23,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 //go:embed scenarios.yaml

@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/yaml"
 
-	tropis "github.com/nathanwebb/tropis/pkg/schema"
+	tropis "github.com/00Webbo/tropis/pkg/schema"
 )
 
 // The NodeHealthReport API. v1alpha1, loudly: it will change before it is

@@ -16,7 +16,7 @@ import (
 	dynfake "k8s.io/client-go/dynamic/fake"
 	"sigs.k8s.io/yaml"
 
-	tropis "github.com/nathanwebb/tropis/pkg/schema"
+	tropis "github.com/00Webbo/tropis/pkg/schema"
 )
 
 func sampleVerdict(rel tropis.Relationship) tropis.Verdict {

@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/nathanwebb/tropis/pkg/reason"
-	"github.com/nathanwebb/tropis/pkg/reason/anthropic"
-	"github.com/nathanwebb/tropis/pkg/reason/local"
-	"github.com/nathanwebb/tropis/pkg/reason/mock"
+	"github.com/00Webbo/tropis/pkg/reason"
+	"github.com/00Webbo/tropis/pkg/reason/anthropic"
+	"github.com/00Webbo/tropis/pkg/reason/local"
+	"github.com/00Webbo/tropis/pkg/reason/mock"
 )
 
 // Providers.

@@ -24,8 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/nathanwebb/tropis/eval/scenarios"
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/eval/scenarios"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 const (

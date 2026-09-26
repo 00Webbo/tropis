@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nathanwebb/tropis/pkg/k8s"
+	"github.com/00Webbo/tropis/pkg/k8s"
 )
 
 func main() {

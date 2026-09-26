@@ -6,7 +6,7 @@ version: 0.1.0
 appVersion: "0.1.0"
 home: https://tropis.io
 sources:
-  - https://github.com/nathanwebb/tropis
+  - https://github.com/00Webbo/tropis
 keywords:
   - diagnostics
   - bare-metal

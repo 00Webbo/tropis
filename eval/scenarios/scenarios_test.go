@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 func TestScenariosLoad(t *testing.T) {

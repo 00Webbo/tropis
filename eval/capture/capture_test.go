@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nathanwebb/tropis/eval/scenarios"
-	"github.com/nathanwebb/tropis/pkg/fixture"
-	"github.com/nathanwebb/tropis/pkg/inventory"
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/eval/scenarios"
+	"github.com/00Webbo/tropis/pkg/fixture"
+	"github.com/00Webbo/tropis/pkg/inventory"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 var at = time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)

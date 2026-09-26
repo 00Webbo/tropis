@@ -19,7 +19,7 @@ package prefilter
 import (
 	"fmt"
 
-	"github.com/nathanwebb/tropis/pkg/host/smart"
+	"github.com/00Webbo/tropis/pkg/host/smart"
 )
 
 // Rule IDs. These appear in Verdict.TriggeredBy and in NPD condition reasons,

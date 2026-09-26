@@ -13,9 +13,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/nathanwebb/tropis/pkg/host/smart"
-	"github.com/nathanwebb/tropis/pkg/redact"
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/host/smart"
+	"github.com/00Webbo/tropis/pkg/redact"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 // Request is everything BuildInput needs: raw captures, exactly as a live

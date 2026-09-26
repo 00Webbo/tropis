@@ -1,4 +1,4 @@
-module github.com/nathanwebb/tropis
+module github.com/00Webbo/tropis
 
 go 1.27.0
 

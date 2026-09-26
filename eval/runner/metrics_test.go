@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 func layer(l schema.Layer) *schema.Layer { return &l }

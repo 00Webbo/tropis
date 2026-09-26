@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nathanwebb/tropis/pkg/host/prefilter"
-	"github.com/nathanwebb/tropis/pkg/reason/mock"
-	"github.com/nathanwebb/tropis/pkg/schema"
+	"github.com/00Webbo/tropis/pkg/host/prefilter"
+	"github.com/00Webbo/tropis/pkg/reason/mock"
+	"github.com/00Webbo/tropis/pkg/schema"
 )
 
 var at = time.Date(2026, 9, 20, 8, 0, 0, 0, time.UTC)
