@@ -68,6 +68,44 @@ Tropis is **read-only**. It does not cordon, drain, evict, or restart
 anything. There is no flag that changes this, because no remediation code
 exists.
 
+## Quickstart
+
+```sh
+kubectl create namespace tropis-system
+kubectl -n tropis-system create secret generic tropis-anthropic \
+  --from-literal=api-key="$ANTHROPIC_API_KEY"
+
+helm install tropis deploy/helm/tropis -n tropis-system \
+  --set backend.apiKeySecret.name=tropis-anthropic
+
+kubectl get nodehealthreports
+```
+
+A sweep runs immediately on install and then every fifteen minutes. Only
+nodes the deterministic pre-filter raises are analysed, so on a healthy
+cluster the expected result is **no reports**.
+
+To keep everything inside the cluster, point it at a local model instead:
+
+```sh
+helm install tropis deploy/helm/tropis -n tropis-system --create-namespace \
+  --set backend.provider=local \
+  --set backend.baseURL=http://ollama.ollama:11434 \
+  --set backend.model=qwen3:32b
+```
+
+To try it with no model at all, `--set backend.provider=mock --set sweep.all=true`
+uses a deterministic heuristic that analyses every node — a first verdict
+typically appears within seconds. It is not a reasoning engine; do not act
+on its verdicts.
+
+Diagnose one node on demand, from anywhere with cluster access:
+
+```sh
+tropis analyze worker-03          # readable
+tropis analyze worker-03 --json   # the same document a NodeHealthReport carries
+```
+
 ## Where Tropis sits
 
 **Tropis is complementary to the tools you already run, not a replacement for
@@ -124,9 +162,12 @@ The full statement is in [SECURITY.md](SECURITY.md). In short:
   pre-filter are sent — never every node on every sweep.
 - Redaction of secrets, credentials, and PII runs before any model call and
   cannot be disabled.
-- The host collector asks for `SYS_RAWIO` and read-only block device access.
-  It does not request `privileged`, `hostPID`, or `hostNetwork`, and holds no
-  Kubernetes API permissions.
+- **The host collector runs privileged by default**, because reading SMART
+  means opening raw block devices, which container runtimes otherwise deny.
+  If your policy forbids that, a device-plugin mode grants it only
+  `SYS_RAWIO` and the specific disks. Either way it gets no `hostPID` or
+  `hostNetwork`, a read-only root filesystem, and no Kubernetes API
+  permissions at all — see [SECURITY.md](SECURITY.md).
 
 ## Status
 

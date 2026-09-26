@@ -1,0 +1,82 @@
+# Tropis Helm values.
+
+image:
+  repository: ghcr.io/nathanwebb/tropis
+  # Defaults to the chart's appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# The reasoning backend. Only nodes the deterministic pre-filter raises are
+# ever sent to it. See SECURITY.md for exactly what leaves the cluster with
+# each backend; with `local`, nothing does.
+backend:
+  # anthropic (default), local, or mock. `mock` is a deterministic heuristic
+  # for trying Tropis out and for tests: it is not a reasoning engine.
+  provider: anthropic
+  # Empty uses the backend's default (claude-opus-5 for anthropic).
+  model: ""
+  # Endpoint. Required for `local`, e.g. http://ollama.ollama:11434.
+  baseURL: ""
+  # For `local`: ollama or openai (vLLM, llama.cpp, LM Studio).
+  localAPI: ollama
+  # For `anthropic`: low, medium, high, xhigh or max. Empty is the API default.
+  effort: ""
+  # A Secret holding the API key, under `apiKeySecret.key`. Tropis never
+  # takes a key as a plain value.
+  apiKeySecret:
+    name: ""
+    key: api-key
+  # Opt-in sweep-then-escalate: `model` becomes a cheaper sweep model and
+  # this one is consulted when the sweep claims causality or is unsure.
+  escalationModel: ""
+
+# The host collector: a DaemonSet reading SMART on every node.
+collector:
+  # How the collector gets at the disks.
+  #
+  #   privileged    (default) The container runs privileged, because opening
+  #                 host block devices is denied by the container runtime's
+  #                 device cgroup otherwise, whatever capabilities are
+  #                 granted. It gets no hostPID, no hostNetwork, no Kubernetes
+  #                 API token and a read-only root filesystem.
+  #
+  #   devicePlugin  Not privileged. A device plugin such as
+  #                 smarter-device-manager grants the listed disks to the pod,
+  #                 which then needs only SYS_RAWIO. Set `devices` to the
+  #                 plugin's resource names, e.g. smarter-devices/sda.
+  securityMode: privileged
+  devices: []
+  # Devices to read. Empty means everything `smartctl --scan` finds.
+  scan: []
+  port: 9476
+  # How often SMART is read in the background to build history, and how far
+  # back it is kept; the oldest reading is compared with the newest.
+  historyInterval: 1h
+  historyMax: 24h
+  resources:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {memory: 128Mi}
+  # Run everywhere, control-plane nodes included: their disks fail too.
+  tolerations:
+    - operator: Exists
+  nodeSelector: {}
+
+# The sweep: a CronJob that pre-filters every node and analyses candidates.
+sweep:
+  schedule: "*/15 * * * *"
+  # Analyse every node, not only those the pre-filter raises. Costs one model
+  # call per node per sweep; useful for a first baseline or a demo.
+  all: false
+  # Run one sweep immediately on install and upgrade, so the first verdict
+  # does not wait for the schedule.
+  runOnInstall: true
+  timeout: 30m
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {memory: 256Mi}
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3

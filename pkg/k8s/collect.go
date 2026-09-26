@@ -276,6 +276,12 @@ func (c *Collector) readLog(ctx context.Context, p corev1.Pod, container string,
 
 // Unhealthy reports whether a container status warrants reading its logs.
 func Unhealthy(s corev1.ContainerStatus) bool {
+	// A container that ran to completion is done, not unhealthy, though it
+	// is never Ready again. Without this, every finished Job's logs would be
+	// read — wasted context, and needless exposure of log data.
+	if t := s.State.Terminated; t != nil && t.ExitCode == 0 && s.RestartCount == 0 {
+		return false
+	}
 	if s.RestartCount > 0 || !s.Ready {
 		return true
 	}

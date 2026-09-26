@@ -154,9 +154,10 @@ func (p *Pipeline) AnalyzeNode(ctx context.Context, node string, force bool) (Ou
 	return out, nil
 }
 
-// Sweep pre-filters every node and analyses the candidates. A failure on one
+// Sweep pre-filters every node and analyses the candidates — or, with all,
+// every node regardless, for a first baseline or a demo. A failure on one
 // node is recorded in its outcome and does not stop the sweep.
-func (p *Pipeline) Sweep(ctx context.Context) ([]Outcome, error) {
+func (p *Pipeline) Sweep(ctx context.Context, all bool) ([]Outcome, error) {
 	nodes, err := p.K8s.Nodes(ctx)
 	if err != nil {
 		return nil, err
@@ -166,7 +167,7 @@ func (p *Pipeline) Sweep(ctx context.Context) ([]Outcome, error) {
 		if err := ctx.Err(); err != nil {
 			return outcomes, err
 		}
-		o, err := p.AnalyzeNode(ctx, n, false)
+		o, err := p.AnalyzeNode(ctx, n, all)
 		if err != nil {
 			o.Error = err.Error()
 		}

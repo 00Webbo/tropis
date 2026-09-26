@@ -32,6 +32,7 @@ func init() {
 type clusterFlags struct {
 	kubeconfig string
 	namespace  string
+	selector   string
 }
 
 func (c *clusterFlags) register(fs *flag.FlagSet) {
@@ -41,6 +42,11 @@ func (c *clusterFlags) register(fs *flag.FlagSet) {
 		ns = "tropis-system"
 	}
 	fs.StringVar(&c.namespace, "namespace", ns, "namespace the tropis-collector DaemonSet runs in")
+	sel := os.Getenv("TROPIS_COLLECTOR_SELECTOR")
+	if sel == "" {
+		sel = k8s.DefaultCollectorSelector
+	}
+	fs.StringVar(&c.selector, "collector-selector", sel, "label selector for tropis-collector pods")
 }
 
 func (c *clusterFlags) clients() (kubernetes.Interface, dynamic.Interface, error) {
@@ -78,7 +84,7 @@ func (c *clusterFlags) pipeline(bf *backendFlags, write bool) (*pipeline.Pipelin
 		return nil, err
 	}
 	p := &pipeline.Pipeline{
-		Host:       &k8s.HostFetcher{Client: cs, Namespace: c.namespace},
+		Host:       &k8s.HostFetcher{Client: cs, Namespace: c.namespace, Selector: c.selector},
 		K8s:        &k8s.Collector{Client: cs},
 		Backend:    b,
 		Thresholds: prefilter.DefaultThresholds(),
@@ -143,6 +149,7 @@ func runSweep(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	write := fs.Bool("write-reports", true, "write each verdict as a NodeHealthReport")
 	jsonOut := fs.Bool("json", false, "print every outcome as JSON")
+	all := fs.Bool("all", false, "analyse every node, not only those the pre-filter raises; costs a model call per node")
 	timeout := fs.Duration("timeout", 30*time.Minute, "overall timeout")
 	var cf clusterFlags
 	var bf backendFlags
@@ -161,7 +168,7 @@ func runSweep(args []string, stdout, stderr io.Writer) int {
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 
-	outcomes, err := p.Sweep(ctx)
+	outcomes, err := p.Sweep(ctx, *all)
 	if err != nil {
 		return fail(stderr, "%v", err)
 	}

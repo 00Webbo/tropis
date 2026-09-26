@@ -1,0 +1,30 @@
+Tropis {{ .Chart.AppVersion }} is installed in {{ .Release.Namespace }}.
+
+Backend: {{ .Values.backend.provider }}{{ with .Values.backend.model }} ({{ . }}){{ end }}
+{{- if eq .Values.backend.provider "mock" }}
+  The mock backend is a deterministic heuristic for trying Tropis out. It is
+  not a reasoning engine; do not act on its verdicts.
+{{- end }}
+{{- if and (eq .Values.backend.provider "anthropic") (not .Values.backend.apiKeySecret.name) }}
+  WARNING: no backend.apiKeySecret is set; analyses will fail to authenticate.
+{{- end }}
+
+The collector runs on every node{{ if eq .Values.collector.securityMode "privileged" }} as a privileged container, which reading
+SMART requires unless a device plugin grants the disks (see SECURITY.md){{ end }}.
+
+A sweep runs {{ if .Values.sweep.runOnInstall }}now, and then {{ end }}on the schedule "{{ .Values.sweep.schedule }}".
+{{- if not .Values.sweep.all }}
+Only nodes the deterministic pre-filter raises are analysed, so a healthy
+cluster produces no reports — that is the expected result.
+{{- end }}
+
+See the verdicts:
+
+  kubectl get nodehealthreports
+  kubectl get nhr -l tropis.io/relationship=causal
+
+Analyse one node on demand:
+
+  kubectl -n {{ .Release.Namespace }} create job --from=cronjob/{{ include "tropis.fullname" . }}-sweep tropis-manual
+
+Tropis is read-only. It never cordons, drains or restarts anything.

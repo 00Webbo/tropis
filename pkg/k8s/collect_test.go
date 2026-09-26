@@ -239,6 +239,8 @@ func TestUnhealthy(t *testing.T) {
 		{"not ready", corev1.ContainerStatus{Ready: false, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}}, true},
 		{"restarted once, now ready", corev1.ContainerStatus{Ready: true, RestartCount: 1}, true},
 		{"completed successfully", corev1.ContainerStatus{Ready: true, State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 0}}}, false},
+		{"completed, not ready (every finished Job)", corev1.ContainerStatus{Ready: false, State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{Reason: "Completed", ExitCode: 0}}}, false},
+		{"completed after restarts", corev1.ContainerStatus{Ready: false, RestartCount: 3, State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 0}}}, true},
 		{"exited non-zero", corev1.ContainerStatus{Ready: true, State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 137}}}, true},
 	}
 	for _, tt := range tests {

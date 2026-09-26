@@ -36,8 +36,11 @@ func (b *Backend) Describe() schema.BackendInfo {
 }
 
 var (
-	ioError   = regexp.MustCompile(`(?i)input/output error|\bEIO\b|i/o error|read-only file system|could not fsync|blk_update_request|medium error|buffer i/o error`)
-	exhausted = regexp.MustCompile(`(?i)no space left on device|low on resource: ephemeral-storage|evictionthresholdmet|diskpressure`)
+	ioError = regexp.MustCompile(`(?i)input/output error|\bEIO\b|i/o error|read-only file system|could not fsync|blk_update_request|medium error|buffer i/o error`)
+	// DiskPressure is read from the node condition, whose status says whether
+	// it holds; matching the word in free text would read the event
+	// "NodeHasNoDiskPressure" as exhaustion.
+	exhausted = regexp.MustCompile(`(?i)no space left on device|low on resource: ephemeral-storage|evictionthresholdmet`)
 )
 
 // Analyze applies the heuristic and returns a validated verdict.
@@ -181,10 +184,16 @@ func stableAnomaly(d reason.DeviceDoc) (reason.ModelEvidence, bool) {
 func grew(cur, prev *uint64) bool { return cur != nil && prev != nil && *cur > *prev }
 
 func podSymptom(p reason.PodDoc) (string, bool) {
-	if p.Phase == "Failed" {
+	switch p.Phase {
+	case "Failed":
 		return strings.TrimSpace("phase Failed " + p.Reason), true
+	case "Succeeded":
+		return "", false // a finished Job is not a symptom
 	}
 	for _, c := range p.Containers {
+		if c.RestartCount == 0 && strings.HasPrefix(c.State, "terminated: Completed exit 0") {
+			continue
+		}
 		if c.RestartCount > 0 || !c.Ready {
 			return fmt.Sprintf("%s: %d restarts, %s", c.Name, c.RestartCount, c.State), true
 		}

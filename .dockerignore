@@ -1,0 +1,7 @@
+.git
+bin
+dist
+eval/results
+*.exe
+*.test
+Tropis_*.md

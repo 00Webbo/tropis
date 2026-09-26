@@ -116,3 +116,39 @@ func TestMockInsufficientEvidence(t *testing.T) {
 
 // The T7 acceptance criterion: a mock backend satisfies the interface.
 var _ reason.Backend = (*Backend)(nil)
+
+// Regression: the kubelet's routine "NodeHasNoDiskPressure" event is not
+// evidence of exhaustion. Found on the first kind install.
+func TestMockIgnoresNoDiskPressureEvent(t *testing.T) {
+	v := analyze(t, reason.Request{
+		Host: schema.HostCapture{SMART: map[string]schema.RawJSON{"/dev/sda": sata("/dev/sda", true, 0, 0)}},
+		Kubernetes: schema.K8sCapture{
+			Events: []schema.RawJSON{schema.RawJSON(`{"metadata":{"uid":"e1","namespace":"default","name":"n"},
+			 "involvedObject":{"kind":"Node","name":"worker-1"},"type":"Normal","reason":"NodeHasNoDiskPressure",
+			 "message":"Node worker-1 status is now: NodeHasNoDiskPressure"}`)},
+		},
+	})
+	if v.Relationship == schema.RelationshipCausal {
+		t.Errorf("a routine NodeHasNoDiskPressure event produced a causal verdict: %+v", v)
+	}
+}
+
+// Regression: a successfully completed Job is not a workload symptom. Found
+// on the kind install, where Tropis's own finished Jobs were cited.
+func TestMockIgnoresCompletedJobs(t *testing.T) {
+	done := schema.RawJSON(`{"metadata":{"namespace":"tropis-system","name":"sweep-x"},"spec":{"containers":[{"name":"tropis"}]},
+	 "status":{"phase":"Succeeded","containerStatuses":[{"name":"tropis","ready":false,"restartCount":0,
+	 "state":{"terminated":{"reason":"Completed","exitCode":0}}}]}}`)
+	v := analyze(t, reason.Request{
+		Host:       schema.HostCapture{SMART: map[string]schema.RawJSON{"/dev/sda": sata("/dev/sda", true, 112, 0)}},
+		Kubernetes: schema.K8sCapture{Pods: []schema.RawJSON{done}},
+	})
+	for _, e := range v.Evidence {
+		if e.Ref == "pod:tropis-system/sweep-x" {
+			t.Errorf("a completed Job was cited as a symptom: %+v", v)
+		}
+	}
+	if v.Relationship == schema.RelationshipCoincidental {
+		t.Errorf("a completed Job made the verdict coincidental: %+v", v)
+	}
+}

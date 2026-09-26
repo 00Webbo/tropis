@@ -33,19 +33,35 @@ the additional access it requires here, in this file, at the time it is added.
 
 ### Privileges required
 
-| Requirement | Why | Scope |
+Reading SMART means opening a raw block device and issuing ATA or NVMe
+passthrough commands to it. Container runtimes deny a non-privileged
+container access to host block devices through the device cgroup, whatever
+capabilities it holds, so the collector needs one of two things:
+
+| Mode | What the collector gets | When to use it |
 |---|---|---|
-| `SYS_RAWIO` capability | `smartctl` issues ATA/NVMe passthrough ioctls to read SMART attributes | The collector container only |
-| Block device access | Reading SMART requires opening the device node (e.g. `/dev/sda`) | Read-only; devices named in configuration |
-| `/sys` mount | Device enumeration and topology | Read-only |
+| `privileged` (default) | A privileged container | Works on any cluster with nothing else installed |
+| `devicePlugin` | Only `SYS_RAWIO`, plus the specific disks a device plugin such as [smarter-device-manager](https://gitlab.com/arm-research/smarter/smarter-device-manager) grants it | Clusters that forbid privileged pods |
 
-Tropis does **not** request `hostPID`, `hostNetwork`, `hostIPC`, or a
-`privileged: true` security context. It does not mount the host root
-filesystem. The collector holds no Kubernetes API permissions at all.
+Set with `collector.securityMode` in the Helm chart.
 
-If a future signal cannot be collected without one of those, it will be
-documented here with its justification before it ships, and it will be
-independently disableable.
+**We would rather state the privileged default plainly than bury it.** An
+earlier draft of this document said the collector ran unprivileged with
+`SYS_RAWIO` alone; that is not possible on standard runtimes, and it was
+corrected before the first release. If your policy forbids privileged pods,
+use `devicePlugin` mode.
+
+In both modes the collector:
+
+- runs no `hostPID`, `hostNetwork` or `hostIPC`;
+- mounts no host filesystem;
+- has a read-only root filesystem;
+- holds **no** Kubernetes API permissions and mounts no service account token;
+- serves one read-only HTTP endpoint (`/v1/smart`) inside the cluster.
+
+If a future signal needs more access than this, it will be documented here
+with its justification before it ships, and it will be independently
+disableable.
 
 ## What the Kubernetes collector reads
 

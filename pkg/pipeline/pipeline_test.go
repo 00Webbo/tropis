@@ -81,7 +81,7 @@ func newPipeline(t *testing.T, k *fakeK8s, w *spyWriter) *Pipeline {
 func TestSweep(t *testing.T) {
 	k := &fakeK8s{nodes: []string{"failing", "healthy", "no-collector"}}
 	w := &spyWriter{}
-	outcomes, err := newPipeline(t, k, w).Sweep(context.Background())
+	outcomes, err := newPipeline(t, k, w).Sweep(context.Background(), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,5 +156,17 @@ func TestWriterFailureIsReported(t *testing.T) {
 	}
 	if out.Verdict == nil {
 		t.Error("the verdict should still be returned when writing fails")
+	}
+}
+
+func TestSweepAll(t *testing.T) {
+	k := &fakeK8s{nodes: []string{"healthy"}}
+	w := &spyWriter{}
+	outcomes, err := newPipeline(t, k, w).Sweep(context.Background(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcomes[0].Verdict == nil || len(w.written) != 1 {
+		t.Errorf("sweep --all should analyse an unraised node: %+v", outcomes)
 	}
 }
