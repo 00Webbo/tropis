@@ -54,9 +54,18 @@ and limits, node conditions, and node-problem-detector conditions where
 present.
 
 Its RBAC contains **read verbs only** (`get`, `list`, `watch`) — with the
-single exception of create/update on `nodehealthreports`, the agent's own
-output resource. There is a CI check asserting that no other write verb
-appears in the shipped RBAC manifests.
+single exception of create, update and patch on `nodehealthreports`, the
+agent's own output resource. A test (`deploy/rbac_test.go`) fails the build
+if any other write verb, any wildcard, or any access to Secrets or
+ConfigMaps appears in the shipped RBAC.
+
+To read each node's SMART data, the analyser asks that node's collector pod
+through the API server's pod proxy. That needs `get` on `pods/proxy`, which
+is granted by a **namespaced Role in Tropis's own namespace only** — it can
+reach the collector pods and no other pod in the cluster.
+
+The collector itself holds **no** Kubernetes API permissions: its
+ServiceAccount does not mount a token.
 
 ## What leaves the cluster
 

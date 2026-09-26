@@ -4,11 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
 	"strconv"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,14 +26,19 @@ const (
 //
 // The collector holds no Kubernetes API permissions, so it cannot publish
 // anything itself. The analyser pulls instead: it finds the collector pod on
-// the node and asks it over HTTP. This keeps every API write, and every API
-// permission, on the analyser side.
+// the node and asks it through the API server's pod proxy. Going through the
+// API server rather than to the pod IP means `tropis analyze` works the same
+// from a laptop as from inside the cluster, and needs only get on pods/proxy
+// in Tropis's own namespace — granted by a namespaced Role, never cluster-wide.
 type HostFetcher struct {
 	Client    kubernetes.Interface
 	Namespace string
 	Selector  string
 	Port      int
-	HTTP      *http.Client
+
+	// get fetches a path from a pod. Replaced in tests; the fake clientset
+	// cannot serve proxy requests.
+	get func(ctx context.Context, namespace, pod string, port int, path string) ([]byte, error)
 }
 
 func (f *HostFetcher) selector() string {
@@ -54,17 +55,8 @@ func (f *HostFetcher) port() int {
 	return f.Port
 }
 
-func (f *HostFetcher) httpClient() *http.Client {
-	if f.HTTP != nil {
-		return f.HTTP
-	}
-	// SMART on a degrading drive can take a while; a cold collector may be
-	// querying every device when the request arrives.
-	return &http.Client{Timeout: 3 * time.Minute}
-}
-
-// CollectorURL returns the URL of the collector pod on nodeName.
-func (f *HostFetcher) CollectorURL(ctx context.Context, nodeName string) (string, error) {
+// CollectorPod returns the name of the running collector pod on nodeName.
+func (f *HostFetcher) CollectorPod(ctx context.Context, nodeName string) (string, error) {
 	pods, err := f.Client.CoreV1().Pods(f.Namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: f.selector(),
 		FieldSelector: fields.OneTermEqualSelector("spec.nodeName", nodeName).String(),
@@ -73,9 +65,8 @@ func (f *HostFetcher) CollectorURL(ctx context.Context, nodeName string) (string
 		return "", fmt.Errorf("find collector on %q: %w", nodeName, err)
 	}
 	for _, p := range pods.Items {
-		if p.Spec.NodeName == nodeName && p.Status.Phase == corev1.PodRunning && p.Status.PodIP != "" {
-			host := net.JoinHostPort(p.Status.PodIP, strconv.Itoa(f.port()))
-			return "http://" + host + collectorSMARTPath, nil
+		if p.Spec.NodeName == nodeName && p.Status.Phase == corev1.PodRunning {
+			return p.Name, nil
 		}
 	}
 	return "", fmt.Errorf("no running tropis-collector pod on node %q (selector %q in namespace %q)",
@@ -84,34 +75,27 @@ func (f *HostFetcher) CollectorURL(ctx context.Context, nodeName string) (string
 
 // Fetch returns the host capture for nodeName.
 func (f *HostFetcher) Fetch(ctx context.Context, nodeName string) (*schema.HostCapture, error) {
-	url, err := f.CollectorURL(ctx, nodeName)
+	pod, err := f.CollectorPod(ctx, nodeName)
 	if err != nil {
 		return nil, err
 	}
-	return FetchHostCapture(ctx, f.httpClient(), url)
-}
-
-// FetchHostCapture GETs a host capture from a collector URL.
-func FetchHostCapture(ctx context.Context, client *http.Client, url string) (*schema.HostCapture, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
+	get := f.get
+	if get == nil {
+		get = f.proxyGet
 	}
-	resp, err := client.Do(req)
+	body, err := get(ctx, f.Namespace, pod, f.port(), collectorSMARTPath)
 	if err != nil {
-		return nil, fmt.Errorf("fetch host capture from %s: %w", url, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return nil, fmt.Errorf("collector at %s returned %s: %s", url, resp.Status, body)
+		return nil, fmt.Errorf("fetch host capture from %s/%s: %w", f.Namespace, pod, err)
 	}
 	var hc schema.HostCapture
-	// A host capture is a few kilobytes per device; cap it well above that
-	// rather than trusting the peer.
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 16<<20)).Decode(&hc); err != nil {
-		return nil, fmt.Errorf("decode host capture from %s: %w", url, err)
+	if err := json.Unmarshal(body, &hc); err != nil {
+		return nil, fmt.Errorf("decode host capture from %s/%s: %w", f.Namespace, pod, err)
 	}
 	return &hc, nil
+}
+
+func (f *HostFetcher) proxyGet(ctx context.Context, namespace, pod string, port int, path string) ([]byte, error) {
+	return f.Client.CoreV1().Pods(namespace).
+		ProxyGet("http", pod, strconv.Itoa(port), path, nil).
+		DoRaw(ctx)
 }

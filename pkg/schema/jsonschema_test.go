@@ -177,3 +177,50 @@ func TestFieldDocsCoverVerdict(t *testing.T) {
 		}
 	}
 }
+
+// Kubernetes rejects a CRD schema carrying these; the structural variant must
+// carry none of them, anywhere.
+func TestVerdictStructuralSchema(t *testing.T) {
+	s := VerdictStructuralSchema()
+	// walk visits schema nodes only: a node's properties map holds
+	// name-to-schema pairs and is not itself a schema.
+	var walk func(path string, node map[string]any)
+	walk = func(path string, node map[string]any) {
+		for _, banned := range []string{"$schema", "$id", "if", "then", "else"} {
+			if _, ok := node[banned]; ok {
+				t.Errorf("%s carries %q", path, banned)
+			}
+		}
+		if _, props := node["properties"]; props {
+			if _, ap := node["additionalProperties"]; ap {
+				t.Errorf("%s has both properties and additionalProperties", path)
+			}
+		}
+		if _, ok := node["type"]; !ok {
+			t.Errorf("%s has no type; structural schemas require one", path)
+		}
+		if props, ok := node["properties"].(map[string]any); ok {
+			for name, child := range props {
+				walk(path+".properties."+name, child.(map[string]any))
+			}
+		}
+		if items, ok := node["items"].(map[string]any); ok {
+			walk(path+".items", items)
+		}
+	}
+	for name, prop := range s["properties"].(map[string]any) {
+		walk("$.properties."+name, prop.(map[string]any))
+	}
+	// The constraints Kubernetes can enforce survive.
+	props := s["properties"].(map[string]any)
+	if props["confidence"].(map[string]any)["maximum"] != 1 {
+		t.Error("confidence bounds should survive")
+	}
+	if props["relationship"].(map[string]any)["enum"] == nil {
+		t.Error("relationship enum should survive")
+	}
+	// The source schema is untouched.
+	if _, ok := VerdictJSONSchema()["if"]; !ok {
+		t.Error("deriving the structural schema must not modify the source")
+	}
+}

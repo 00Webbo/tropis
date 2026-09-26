@@ -51,6 +51,40 @@ rules:
     resources: ["nodehealthreports/status"]
     verbs: ["get", "update", "patch"]
 ---
+# Reaching the collector on each node goes through the API server's pod
+# proxy, so the analyser works the same in-cluster and from a laptop. The
+# proxy permission is a namespaced Role on Tropis's own namespace: it can
+# reach the collector pods and nothing else in the cluster.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "tropis.fullname" . }}-collector-proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tropis.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analyzer
+rules:
+  - apiGroups: [""]
+    resources: ["pods/proxy"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "tropis.fullname" . }}-collector-proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tropis.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analyzer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "tropis.fullname" . }}-collector-proxy
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "tropis.fullname" . }}-analyzer
+    namespace: {{ .Release.Namespace }}
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:

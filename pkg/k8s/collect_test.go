@@ -3,8 +3,7 @@ package k8s
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -249,47 +248,67 @@ func TestUnhealthy(t *testing.T) {
 	}
 }
 
-func TestHostFetcher(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != collectorSMARTPath {
-			http.NotFound(w, r)
-			return
-		}
-		_ = json.NewEncoder(w).Encode(schema.HostCapture{
-			SMART:       map[string]schema.RawJSON{"/dev/sda": schema.RawJSON(`{"device":{"name":"/dev/sda"}}`)},
-			CollectedAt: now,
-		})
-	}))
-	defer srv.Close()
+func collectorPod(name, node string, phase corev1.PodPhase) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "tropis-system", Name: name,
+			Labels: map[string]string{"app.kubernetes.io/name": "tropis", "app.kubernetes.io/component": "collector"}},
+		Spec:   corev1.PodSpec{NodeName: node},
+		Status: corev1.PodStatus{Phase: phase},
+	}
+}
 
-	hc, err := FetchHostCapture(context.Background(), srv.Client(), srv.URL+collectorSMARTPath)
+func TestHostFetcher(t *testing.T) {
+	var asked string
+	f := &HostFetcher{
+		Client:    fake.NewClientset(collectorPod("collector-abc", "worker-02", corev1.PodRunning), collectorPod("collector-xyz", "worker-03", corev1.PodRunning)),
+		Namespace: "tropis-system",
+		get: func(_ context.Context, ns, pod string, port int, path string) ([]byte, error) {
+			asked = ns + "/" + pod + ":" + fmt.Sprint(port) + path
+			return json.Marshal(schema.HostCapture{
+				SMART:       map[string]schema.RawJSON{"/dev/sda": schema.RawJSON(`{"device":{"name":"/dev/sda"}}`)},
+				CollectedAt: now,
+			})
+		},
+	}
+	hc, err := f.Fetch(context.Background(), "worker-02")
 	if err != nil {
-		t.Fatalf("FetchHostCapture: %v", err)
+		t.Fatalf("Fetch: %v", err)
+	}
+	if asked != "tropis-system/collector-abc:9476/v1/smart" {
+		t.Errorf("fetched %q", asked)
 	}
 	if _, ok := hc.SMART["/dev/sda"]; !ok {
 		t.Errorf("capture = %+v", hc)
 	}
 }
 
-func TestCollectorURL(t *testing.T) {
-	labels := map[string]string{"app.kubernetes.io/name": "tropis", "app.kubernetes.io/component": "collector"}
-	running := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Namespace: "tropis-system", Name: "collector-abc", Labels: labels},
-		Spec:       corev1.PodSpec{NodeName: "worker-02"},
-		Status:     corev1.PodStatus{Phase: corev1.PodRunning, PodIP: "10.0.2.7"},
+func TestCollectorPod(t *testing.T) {
+	f := &HostFetcher{
+		Client: fake.NewClientset(
+			collectorPod("pending", "worker-02", corev1.PodPending),
+			collectorPod("running", "worker-02", corev1.PodRunning),
+		),
+		Namespace: "tropis-system",
 	}
-	f := &HostFetcher{Client: fake.NewClientset(running), Namespace: "tropis-system"}
-
-	url, err := f.CollectorURL(context.Background(), "worker-02")
-	if err != nil {
-		t.Fatal(err)
+	name, err := f.CollectorPod(context.Background(), "worker-02")
+	if err != nil || name != "running" {
+		t.Errorf("CollectorPod = %q, %v", name, err)
 	}
-	if url != "http://10.0.2.7:9476/v1/smart" {
-		t.Errorf("url = %q", url)
-	}
-
-	if _, err := f.CollectorURL(context.Background(), "worker-99"); err == nil {
+	if _, err := f.CollectorPod(context.Background(), "worker-99"); err == nil {
 		t.Error("expected an error when no collector runs on the node")
+	}
+}
+
+func TestNPDConditionsAndNodes(t *testing.T) {
+	c, _ := collector(node(corev1.NodeCondition{Type: "ReadonlyFilesystem", Status: corev1.ConditionTrue}),
+		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "a-node"}})
+	conds, err := c.NPDConditions(context.Background(), "worker-02")
+	if err != nil || len(conds) != 1 || !strings.Contains(conds[0].String(), "ReadonlyFilesystem") {
+		t.Errorf("NPDConditions = %v, %v", conds, err)
+	}
+	names, err := c.Nodes(context.Background())
+	if err != nil || strings.Join(names, ",") != "a-node,worker-02" {
+		t.Errorf("Nodes = %v, %v", names, err)
 	}
 }
 

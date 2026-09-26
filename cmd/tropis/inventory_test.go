@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/nathanwebb/tropis/pkg/schema"
 )
 
 func runCmd(args ...string) (int, string, string) {
@@ -104,5 +107,27 @@ func TestEvalPublishableRefusesDevCorpus(t *testing.T) {
 		"--backend", "mock", "--out", t.TempDir(), "--publishable", "--quiet")
 	if code == exitOK || !strings.Contains(stderr, "synthetic") {
 		t.Errorf("exit %d, %s", code, stderr)
+	}
+}
+
+func TestHumanOutput(t *testing.T) {
+	at := time.Date(2026, 9, 20, 8, 0, 0, 0, time.UTC)
+	out := Human(schema.Verdict{
+		Node: "worker-03", ObservedAt: at, Relationship: schema.RelationshipCausal, Confidence: 0.87,
+		RootCause: &schema.RootCause{Layer: schema.LayerHost, Description: "Disk /dev/sdb is failing."},
+		Evidence:  []schema.Evidence{{Source: "smartctl", Ref: "smart:/dev/sdb#197", Excerpt: "pendingSectors 24"}},
+		NextStep:  "Consider replacing /dev/sdb.",
+		Backend:   schema.BackendInfo{Provider: "anthropic", Model: "claude-opus-5", PromptVersion: "v1"},
+	})
+	for _, want := range []string{"CAUSAL (confidence 0.87)", "Root cause: host", "smart:/dev/sdb#197", "Tropis has taken no action", "anthropic/claude-opus-5"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestAnalyzeUsage(t *testing.T) {
+	if code, _, _ := runCmd("analyze"); code != exitUsage {
+		t.Errorf("analyze without a node: exit %d", code)
 	}
 }

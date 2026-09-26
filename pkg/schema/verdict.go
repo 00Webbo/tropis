@@ -9,6 +9,7 @@
 package schema
 
 //go:generate go run ../../hack/gen-schema -o ../../docs/schema/verdict.schema.json
+//go:generate go run ../../hack/gen-crd -o ../../deploy/helm/tropis/crds/tropis.io_nodehealthreports.yaml
 
 import (
 	"time"

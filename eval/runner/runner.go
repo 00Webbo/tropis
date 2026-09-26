@@ -16,19 +16,17 @@ package runner
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math/rand"
-	"sort"
 	"sync"
 	"time"
 
 	"github.com/nathanwebb/tropis/pkg/fixture"
 	"github.com/nathanwebb/tropis/pkg/host/prefilter"
-	"github.com/nathanwebb/tropis/pkg/host/smart"
 	"github.com/nathanwebb/tropis/pkg/inventory"
+	"github.com/nathanwebb/tropis/pkg/pipeline"
 	"github.com/nathanwebb/tropis/pkg/reason"
 	"github.com/nathanwebb/tropis/pkg/schema"
 )
@@ -307,7 +305,7 @@ func analyseOne(ctx context.Context, b reason.Backend, c fixture.Case, order int
 	f := c.Fixture
 	r = CaseResult{Order: order, ScenarioID: f.ScenarioID, Variant: string(f.Variant), Dir: c.Dir}
 
-	pre := Prefilter(f, th)
+	pre := pipeline.Prefilter(f.Host, f.Kubernetes.NPDConditions, th)
 	r.Raised = pre.Candidate()
 	r.TriggeredBy = pre.TriggeredBy()
 
@@ -336,51 +334,6 @@ func analyseOne(ctx context.Context, b reason.Backend, c fixture.Case, order int
 	}
 	r.Verdict = &v
 	return r
-}
-
-// Prefilter runs the deterministic rules over a fixture exactly as the live
-// pipeline would over a node: SMART rules against the capture and its
-// previous reading, plus NPD conditions as triggers where present.
-func Prefilter(f *schema.Fixture, th prefilter.Thresholds) prefilter.Result {
-	report := parseSMART(f.Host.SMART, f.Host.CollectedAt)
-	var previous map[string]*smart.Device
-	if f.Host.Previous != nil {
-		prev := parseSMART(f.Host.Previous.SMART, f.Host.Previous.CollectedAt)
-		previous = map[string]*smart.Device{}
-		for i := range prev.Devices {
-			d := prev.Devices[i]
-			previous[prefilter.DeviceKey(&d)] = &d
-		}
-	}
-	res := prefilter.Evaluate(report, previous, th)
-
-	var conds []prefilter.NPDCondition
-	for _, raw := range f.Kubernetes.NPDConditions {
-		var c prefilter.NPDCondition
-		if json.Unmarshal(raw, &c) == nil {
-			conds = append(conds, c)
-		}
-	}
-	res.ApplyNPD(conds, prefilter.DefaultNPDTriggerTypes)
-	return res
-}
-
-func parseSMART(raw map[string]schema.RawJSON, at time.Time) *smart.Report {
-	paths := make([]string, 0, len(raw))
-	for p := range raw {
-		paths = append(paths, p)
-	}
-	sort.Strings(paths)
-	report := &smart.Report{CollectedAt: at}
-	for _, p := range paths {
-		d, fail := smart.Parse(raw[p], p)
-		if fail != nil {
-			report.Failures = append(report.Failures, *fail)
-			continue
-		}
-		report.Devices = append(report.Devices, *d)
-	}
-	return report
 }
 
 func score(v *schema.Verdict, l *schema.Label) Score {

@@ -311,3 +311,37 @@ func marshalClean(obj metav1.Object) (schema.RawJSON, error) {
 	}
 	return raw, nil
 }
+
+// NPDConditions returns only the externally set conditions on a node — in
+// practice node-problem-detector's — for the pre-filter. It is the cheap
+// read a sweep makes for every node, before deciding which to analyse.
+func (c *Collector) NPDConditions(ctx context.Context, nodeName string) ([]schema.RawJSON, error) {
+	node, err := c.Client.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("get node %q: %w", nodeName, err)
+	}
+	_, external := splitConditions(node.Status.Conditions)
+	out := make([]schema.RawJSON, 0, len(external))
+	for i := range external {
+		raw, err := json.Marshal(external[i])
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, raw)
+	}
+	return out, nil
+}
+
+// Nodes lists every node name, sorted.
+func (c *Collector) Nodes(ctx context.Context) ([]string, error) {
+	list, err := c.Client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("list nodes: %w", err)
+	}
+	names := make([]string, 0, len(list.Items))
+	for _, n := range list.Items {
+		names = append(names, n.Name)
+	}
+	sort.Strings(names)
+	return names, nil
+}

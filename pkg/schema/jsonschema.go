@@ -189,3 +189,42 @@ func parseJSONTag(f reflect.StructField) (string, jsonTagOpts, bool) {
 	}
 	return name, opts, true
 }
+
+// VerdictStructuralSchema returns the Verdict schema in the subset Kubernetes
+// accepts for a CRD: a structural OpenAPI v3 schema.
+//
+// It is derived from VerdictJSONSchema by removing what Kubernetes rejects —
+// $schema, $id, the if/then/else tying rootCause to a causal relationship,
+// and additionalProperties alongside properties. The API server therefore
+// enforces less than Validate does, which is fine: Validate runs before any
+// verdict is written, and remains the authority.
+func VerdictStructuralSchema() map[string]any {
+	return structural(VerdictJSONSchema()).(map[string]any)
+}
+
+func structural(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, val := range t {
+			switch k {
+			case "$schema", "$id", "if", "then", "else", "title":
+				continue
+			case "additionalProperties":
+				if _, hasProps := t["properties"]; hasProps {
+					continue
+				}
+			}
+			out[k] = structural(val)
+		}
+		return out
+	case []any:
+		out := make([]any, len(t))
+		for i := range t {
+			out[i] = structural(t[i])
+		}
+		return out
+	default:
+		return v
+	}
+}
