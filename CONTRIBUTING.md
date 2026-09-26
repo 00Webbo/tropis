@@ -16,13 +16,18 @@ commits.
 
 ## Development setup
 
-Requires Go 1.25 or later. No cluster or bare-metal hardware is needed to
-build, test, or run the evaluation harness.
+Requires Go 1.27 or later and GNU make. No cluster or bare-metal hardware is
+needed to build, test, or run the evaluation harness.
 
 ```sh
-go build ./...
-go test ./...
+make help     # every task, grouped
+make check    # what to run before pushing: format, vet, tests, generated files, NPD protocol, chart lint
 ```
+
+The integration targets need Docker: `make inject-test` runs the fault
+injection scripts in a privileged container, and `make kind-e2e` installs the
+chart on a fresh kind cluster and requires a verdict (also kind, kubectl and
+helm).
 
 `smartctl` (from `smartmontools`) is needed only to run the collector against
 a real disk. The unit tests run against committed sample output and do not
