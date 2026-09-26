@@ -113,6 +113,24 @@ var rules = []rule{
 		replace: whole(KindPrivateKey),
 	},
 	{
+		// Key material without its PEM armour: a log tail can cut off the
+		// BEGIN line and leave the body. A whole line of 40 or more base64
+		// characters mixing upper case, lower case and digits is treated as
+		// key material. Hex hashes and image digests are single-case and are
+		// left alone.
+		kind: KindPrivateKey,
+		re:   regexp.MustCompile(`(?m)^[A-Za-z0-9+/]{40,}={0,2}\r?$`),
+		replace: func(r *Redactor, m []string) string {
+			s := m[0]
+			if !strings.ContainsAny(s, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") ||
+				!strings.ContainsAny(s, "abcdefghijklmnopqrstuvwxyz") ||
+				!strings.ContainsAny(s, "0123456789") {
+				return s
+			}
+			return r.secret(KindPrivateKey)
+		},
+	},
+	{
 		// Authorization: Bearer <token> / Basic <base64>, in headers or logs.
 		kind: KindAuthHeader,
 		re:   regexp.MustCompile(`(?i)\b(bearer|basic)(\s+)[A-Za-z0-9._~+/=-]{8,}`),

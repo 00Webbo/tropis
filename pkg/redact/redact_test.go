@@ -259,3 +259,27 @@ func TestRedactIsIdempotent(t *testing.T) {
 		t.Errorf("redacting redacted text changed it:\n once: %s\ntwice: %s", once, twice)
 	}
 }
+
+// A log tail can cut off a PEM block's BEGIN line, leaving bare key body.
+func TestRedactOrphanedKeyMaterial(t *testing.T) {
+	in := "MIIEowIBAAKCAQEAv5yX8f2kQ9tL0rJmZ3pW7sN1aB4cD6eF8gH0iJ2kL4mN6oP8\n" +
+		"-----END RSA PRIVATE KEY-----\n" +
+		"next line"
+	got := New().String(in)
+	if strings.Contains(got, "MIIEowIBAAKCAQEA") {
+		t.Errorf("orphaned key body survived:\n%s", got)
+	}
+	if !strings.Contains(got, "next line") {
+		t.Errorf("following text should survive:\n%s", got)
+	}
+
+	// Single-case hex hashes on their own line are not key material.
+	for _, keep := range []string{
+		"0d17b565c37bcbd895e9d92315a05c1c3c9a29f762b011a10c54a66cd53c9b31",
+		"ABCDEF0123456789ABCDEF0123456789ABCDEF0123",
+	} {
+		if got := New().String(keep); got != keep {
+			t.Errorf("hash should be untouched: %s -> %s", keep, got)
+		}
+	}
+}
