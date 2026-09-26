@@ -1,0 +1,71 @@
+# Example environment inventory for the Tropis capture rig.
+#
+# Placeholder values throughout: copy this file, fill in your own rig, and
+# keep the copy out of the repository if it holds real addresses.
+# Schema: docs/inventory.md
+apiVersion: tropis.io/v1alpha1
+kind: Inventory
+
+cluster:
+  name: tropis-lab
+  kubernetesVersion: v1.31.2
+  distribution: kubespray
+  containerRuntime: containerd://1.7.22
+
+nodes:
+  - name: cp-01
+    role: control-plane
+    address: 192.0.2.10
+    kernel: 6.8.0-45-generic
+    osRelease: Ubuntu 24.04.1 LTS
+    bmc:
+      endpoint: https://192.0.2.110
+      protocol: redfish
+    disks:
+      - id: system
+        device: /dev/nvme0n1
+        byId: /dev/disk/by-id/nvme-EXAMPLE_SYSTEM_DISK_0001
+        model: Example NVMe 512GB
+        transport: nvme
+        destructible: false
+
+  - name: worker-01
+    role: worker
+    address: 192.0.2.11
+    kernel: 6.8.0-45-generic
+    osRelease: Ubuntu 24.04.1 LTS
+    bmc:
+      endpoint: https://192.0.2.111
+      protocol: redfish
+    disks:
+      - id: system
+        device: /dev/nvme0n1
+        byId: /dev/disk/by-id/nvme-EXAMPLE_SYSTEM_DISK_0002
+        model: Example NVMe 512GB
+        transport: nvme
+        destructible: false
+
+  - name: worker-02
+    role: worker
+    address: 192.0.2.12
+    kernel: 6.8.0-45-generic
+    osRelease: Ubuntu 24.04.1 LTS
+    bmc:
+      endpoint: https://192.0.2.112
+      protocol: redfish
+    disks:
+      - id: system
+        device: /dev/nvme0n1
+        byId: /dev/disk/by-id/nvme-EXAMPLE_SYSTEM_DISK_0003
+        model: Example NVMe 512GB
+        transport: nvme
+        destructible: false
+      # The sacrificial disk: the only one any injection script will touch.
+      - id: sacrificial
+        device: /dev/sdb
+        byId: /dev/disk/by-id/ata-EXAMPLE_HDD_2TB_SERIAL0001
+        model: Example HDD 2TB
+        transport: sata
+        destructible: true
+        mountpoint: /mnt/disks/sacrificial
+        notes: Workloads under test mount this via hostPath or a local PV.
