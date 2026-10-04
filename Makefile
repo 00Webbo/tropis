@@ -20,6 +20,7 @@ PKGS    := cmd pkg eval hack deploy
 CORPUS  ?= eval/fixtures
 BACKEND ?=
 SEED    ?=
+REQUIRE_DUST ?= 0
 
 ##@ Build
 
@@ -83,16 +84,17 @@ check: fmt-check vet test check-generated npd-test helm-lint ## Everything that 
 ##@ Integration (Docker)
 
 .PHONY: inject-test
-inject-test: build-linux ## Run the fault-injection scripts against a loop device in a privileged container (docker)
-	@for nodust in 0 1; do \
-		echo "==> injection tests, TROPIS_NO_DUST=$$nodust"; \
+inject-test: build-linux ## Run the fault-injection scripts against a loop device in a privileged container (docker; REQUIRE_DUST=1 fails unless dm-dust is used)
+	@rc=0; for nodust in 0 1; do \
+		req=0; if [ "$$nodust" = 0 ] && [ "$(REQUIRE_DUST)" = 1 ]; then req=1; fi; \
+		echo "==> injection tests, TROPIS_NO_DUST=$$nodust TROPIS_REQUIRE_DUST=$$req"; \
 		MSYS_NO_PATHCONV=1 docker run --rm --privileged -v /dev:/dev -v /lib/modules:/lib/modules:ro \
-			-v "$(CURDIR):/repo:ro" -e TROPIS_INJECT_TEST=1 -e TROPIS_NO_DUST=$$nodust ubuntu:24.04 bash -c '\
+			-v "$(CURDIR):/repo:ro" -e TROPIS_INJECT_TEST=1 -e TROPIS_NO_DUST=$$nodust -e TROPIS_REQUIRE_DUST=$$req ubuntu:24.04 bash -c '\
 				export DEBIAN_FRONTEND=noninteractive; \
 				apt-get update -qq && apt-get install -y -qq dmsetup e2fsprogs util-linux jq procps smartmontools kmod >/dev/null; \
 				modprobe -a dm_mod dm_flakey dm_delay dm_dust 2>/dev/null || true; \
-				bash /repo/hack/inject/test.sh /repo/bin/linux/tropis /repo/bin/linux/tropis-collector'; \
-	done
+				bash /repo/hack/inject/test.sh /repo/bin/linux/tropis /repo/bin/linux/tropis-collector' || rc=1; \
+	done; exit $$rc
 
 .PHONY: kind-e2e
 kind-e2e: ## Install on a fresh kind cluster and require a verdict (docker, kind, kubectl, helm; KEEP=1 keeps the cluster)

@@ -115,5 +115,17 @@ docker run --rm --privileged -v /dev:/dev -v /lib/modules:/lib/modules:ro \
 ```
 
 CI runs it twice, the second time with `TROPIS_NO_DUST=1` to force the
-dm-error fallback, so both bad-sector mechanisms stay covered whichever the
-runner's kernel provides.
+dm-error fallback. GitHub's hosted runners use an Azure kernel built without
+dm-dust, though, so in CI both runs exercise the fallback.
+
+**The dm-dust path is therefore verified on the rig.** Before the capture
+run, on a rig node with a stock Ubuntu kernel:
+
+```sh
+make inject-test REQUIRE_DUST=1
+```
+
+`REQUIRE_DUST=1` fails the run unless dm-dust is what the scripts actually
+used, so a kernel without it cannot pass by silently testing the fallback.
+The test works on loop devices in a container and touches none of the rig's
+disks.

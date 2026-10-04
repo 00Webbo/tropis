@@ -41,10 +41,14 @@ jobs:
 
   inject:
     runs-on: ubuntu-latest
+    # GitHub-hosted runners use the Azure kernel, which is built without
+    # dm-dust, so CI covers the dm-error fallback only. The dm-dust path is
+    # exercised on the capture rig, whose stock Ubuntu kernel has it:
+    # `make inject-test REQUIRE_DUST=1`. The matrix stays so that a runner
+    # kernel with dm-dust would be tested automatically.
     strategy:
+      fail-fast: false
       matrix:
-        # One run requires dm-dust (loaded on the runner below), the other
-        # forces the dm-error fallback, so both mechanisms stay covered.
         no-dust: ["0", "1"]
     steps:
       - uses: actions/checkout@v4
@@ -54,22 +58,12 @@ jobs:
       - run: |
           CGO_ENABLED=0 go build -o bin/tropis ./cmd/tropis
           CGO_ENABLED=0 go build -o bin/tropis-collector ./cmd/tropis-collector
-      - name: load dm-dust on the runner
-        # Ubuntu ships dm-dust in linux-modules-extra, which runners lack. The
-        # container below uses the host kernel, so the module is loaded here.
-        if: matrix.no-dust == '0'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq "linux-modules-extra-$(uname -r)" >/dev/null
-          sudo modprobe dm_dust
-          lsmod | grep dm_dust
       - name: injection scripts against a loop device
         # A disposable privileged container: these scripts need root and
         # device-mapper, and must never run on a machine anyone cares about.
         run: |
           docker run --rm --privileged -v /dev:/dev -v /lib/modules:/lib/modules:ro \
             -v "$PWD:/repo:ro" -e TROPIS_INJECT_TEST=1 -e TROPIS_NO_DUST=${{ matrix.no-dust }} \
-            -e TROPIS_REQUIRE_DUST=${{ matrix.no-dust == '0' && '1' || '0' }} \
             ubuntu:24.04 bash -c '
               export DEBIAN_FRONTEND=noninteractive
               apt-get update -qq && apt-get install -y -qq dmsetup e2fsprogs util-linux jq procps smartmontools kmod >/dev/null
