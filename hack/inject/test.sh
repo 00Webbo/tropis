@@ -88,7 +88,13 @@ echo "bad-sector tool: $( [ "${TROPIS_NO_DUST:-}" = 1 ] && echo "dm-error (force
 # --- read errors -------------------------------------------------------------
 
 rec="$(BAD_BLOCKS="200000 200001" "$HERE/read-errors.sh" start)" && check_record read-errors "$rec" disk.read_errors no || fail "read-errors start"
-echo "bad-sector mechanism in use: $(printf '%s' "$rec" | jq -r .injection.tool)"
+mechanism="$(printf '%s' "$rec" | jq -r .injection.tool)"
+echo "bad-sector mechanism in use: $mechanism"
+# CI sets TROPIS_REQUIRE_DUST on the run meant to cover dm-dust, so a kernel
+# without it fails loudly instead of quietly testing the fallback twice.
+if [ "${TROPIS_REQUIRE_DUST:-}" = 1 ] && [ "$mechanism" != dm-dust ]; then
+	fail "dm-dust was required but $mechanism was used"
+fi
 readable 200000 && fail "read-errors: bad block was readable" || pass "read-errors: bad block returns an error"
 readable 100000 && pass "read-errors: other blocks readable" || fail "read-errors: healthy block unreadable"
 rec="$("$HERE/read-errors.sh" stop)" && check_record read-errors "$rec" disk.read_errors yes || fail "read-errors stop"
