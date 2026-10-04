@@ -1,0 +1,173 @@
+name: release
+
+# Releases are driven by release-please and Conventional Commits.
+#
+# After CI passes on a push to main, release-please keeps a release pull
+# request open that bumps the version (deploy/helm/tropis/Chart.yaml) and
+# updates CHANGELOG.md from the commit messages since the last release.
+# Merging that pull request creates the tag and GitHub Release, and the
+# publish job below then attaches the artifacts: CLI archives with signed
+# checksums, the signed multi-arch image with SBOM and provenance, and the
+# signed Helm chart. See CONTRIBUTING.md, Releasing.
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write # release PR branch, tag, GitHub Release
+  pull-requests: write # the release PR
+  packages: write # ghcr.io image and chart
+  id-token: write # keyless cosign signing
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    # Only after CI passed on a push to main: never for a pull request, never
+    # on a red build.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          target-branch: main
+
+  publish:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+          fetch-depth: 0
+
+      - id: v
+        name: version
+        env:
+          TAG: ${{ needs.release-please.outputs.tag }}
+        run: |
+          version="${TAG#v}"
+          chart="$(awk '/^version:/ {print $2}' deploy/helm/tropis/Chart.yaml)"
+          # release-please bumped the chart in the release PR; they must agree.
+          if [ "$chart" != "$version" ]; then
+            echo "::error::Chart.yaml says $chart but the release is $TAG"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          # Image and chart names must be lowercase; the owner is 00Webbo.
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "charts=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts" >> "$GITHUB_OUTPUT"
+          # 0.x is pre-release: the API is v1alpha1 and accuracy is unpublished.
+          case "$version" in 0.*|*-*) echo "prerelease=true" >> "$GITHUB_OUTPUT" ;; *) echo "prerelease=false" >> "$GITHUB_OUTPUT" ;; esac
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: azure/setup-helm@v4
+      - uses: sigstore/cosign-installer@v3
+
+      - name: CLI archives and chart
+        run: |
+          make dist
+          make chart-package
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: image
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          platforms: linux/amd64,linux/arm64
+          build-args: VERSION=${{ steps.v.outputs.tag }}
+          # The chart pulls the image by appVersion, which has no leading v.
+          tags: |
+            ${{ steps.v.outputs.image }}:${{ steps.v.outputs.version }}
+            ${{ steps.v.outputs.image }}:sha-${{ steps.v.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.v.outputs.version }}
+            org.opencontainers.image.revision=${{ steps.v.outputs.sha }}
+            org.opencontainers.image.licenses=Apache-2.0
+          # SBOM and SLSA provenance attached to the image.
+          sbom: true
+          provenance: mode=max
+
+      - name: sign the image
+        run: cosign sign --yes "${{ steps.v.outputs.image }}@${{ steps.image.outputs.digest }}"
+
+      - name: push and sign the chart
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          out="$(helm push "dist/tropis-${{ steps.v.outputs.version }}.tgz" "oci://${{ steps.v.outputs.charts }}" 2>&1)"
+          echo "$out"
+          digest="$(echo "$out" | sed -n 's/^Digest: //p')"
+          cosign sign --yes "${{ steps.v.outputs.charts }}/tropis@$digest"
+
+      - name: sign the checksums
+        run: cosign sign-blob --yes --bundle dist/checksums.txt.sigstore.json dist/checksums.txt
+
+      - name: attach artifacts and install notes to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.v.outputs.tag }}
+          VERSION: ${{ steps.v.outputs.version }}
+          IMAGE: ${{ steps.v.outputs.image }}
+          CHARTS: ${{ steps.v.outputs.charts }}
+        run: |
+          gh release upload "$TAG" --clobber \
+            dist/*.tar.gz dist/checksums.txt dist/checksums.txt.sigstore.json "dist/tropis-$VERSION.tgz"
+
+          # release-please wrote the changelog section; add how to install
+          # and verify this release above it.
+          gh release view "$TAG" --json body --jq .body > changelog.md
+          cat > notes.md <<EOF
+          ## Install
+
+          \`\`\`sh
+          helm install tropis oci://$CHARTS/tropis --version $VERSION \\
+            --namespace tropis-system --create-namespace
+          \`\`\`
+
+          Image: \`$IMAGE:$VERSION\` (linux/amd64, linux/arm64). The CLI archives
+          below hold \`tropis\` and \`tropis-collector\` for each platform.
+
+          ## Verify
+
+          \`\`\`sh
+          cosign verify $IMAGE:$VERSION \\
+            --certificate-identity-regexp 'https://github.com/${{ github.repository }}/' \\
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          cosign verify-blob checksums.txt --bundle checksums.txt.sigstore.json \\
+            --certificate-identity-regexp 'https://github.com/${{ github.repository }}/' \\
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          sha256sum -c checksums.txt
+          \`\`\`
+
+          EOF
+          cat changelog.md >> notes.md
+          flags=()
+          [ "${{ steps.v.outputs.prerelease }}" = true ] && flags+=(--prerelease)
+          gh release edit "$TAG" --notes-file notes.md "${flags[@]}"

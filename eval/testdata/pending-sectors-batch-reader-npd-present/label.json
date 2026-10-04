@@ -1,0 +1,7 @@
+{
+  "scenarioId": "pending-sectors-batch-reader",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.pending_sectors",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. A batch job reading a dataset from the target disk fails on the pending sectors and retries into CrashLoopBackOff."
+}

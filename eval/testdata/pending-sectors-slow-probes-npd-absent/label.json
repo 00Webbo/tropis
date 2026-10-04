@@ -1,0 +1,7 @@
+{
+  "scenarioId": "pending-sectors-slow-probes",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.pending_sectors",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. Pending sectors make the drive retry internally; reads stall for seconds and postgres's liveness probe times out and restarts it."
+}

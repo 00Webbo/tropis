@@ -1,0 +1,34 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "10m",
+    "timeout": "5m",
+    "max_output_length": 80,
+    "concurrency": 1,
+    "enable_message_change_based_condition_update": false
+  },
+  "source": "tropis-smart-plugin-monitor",
+  "metricsReporting": true,
+  "conditions": [
+    {
+      "type": "DiskSMARTProblem",
+      "reason": "DiskSMARTHealthy",
+      "message": "SMART attributes are within thresholds"
+    }
+  ],
+  "rules": [
+    {
+      "type": "temporary",
+      "reason": "DiskSMARTDegraded",
+      "path": "/usr/local/bin/tropis-smart-check.sh",
+      "timeout": "5m"
+    },
+    {
+      "type": "permanent",
+      "condition": "DiskSMARTProblem",
+      "reason": "DiskSMARTDegraded",
+      "path": "/usr/local/bin/tropis-smart-check.sh",
+      "timeout": "5m"
+    }
+  ]
+}

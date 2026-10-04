@@ -1,0 +1,5 @@
+{
+  "scenarioId": "unreadable-smart-restarts",
+  "relationship": "insufficient_evidence",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. The collector cannot read SMART (the capability is withheld for this capture), and a pod has been killed with exit 137 leaving no logs or events. Nothing supports a judgement either way."
+}

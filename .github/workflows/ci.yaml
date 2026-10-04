@@ -1,0 +1,117 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: test -z "$(gofmt -l cmd pkg eval hack deploy)" || { gofmt -l cmd pkg eval hack deploy; exit 1; }
+      - name: vet
+        run: go vet ./...
+      - name: test
+        run: go test -race ./...
+      - name: generated files are current
+        run: |
+          go generate ./...
+          go run ./hack/gen-devcorpus
+          git diff --exit-code
+
+  npd-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go build -o bin/tropis-collector ./cmd/tropis-collector
+      - name: NPD plugin protocol
+        run: sh hack/npd-plugin/test.sh "$PWD/bin/tropis-collector" "$PWD/pkg/host/smart/testdata"
+
+  inject:
+    runs-on: ubuntu-latest
+    # GitHub-hosted runners use the Azure kernel, which is built without
+    # dm-dust, so CI covers the dm-error fallback only. The dm-dust path is
+    # exercised on the capture rig, whose stock Ubuntu kernel has it:
+    # `make inject-test REQUIRE_DUST=1`. The matrix stays so that a runner
+    # kernel with dm-dust would be tested automatically.
+    strategy:
+      fail-fast: false
+      matrix:
+        no-dust: ["0", "1"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: |
+          CGO_ENABLED=0 go build -o bin/tropis ./cmd/tropis
+          CGO_ENABLED=0 go build -o bin/tropis-collector ./cmd/tropis-collector
+      - name: injection scripts against a loop device
+        # A disposable privileged container: these scripts need root and
+        # device-mapper, and must never run on a machine anyone cares about.
+        run: |
+          docker run --rm --privileged -v /dev:/dev -v /lib/modules:/lib/modules:ro \
+            -v "$PWD:/repo:ro" -e TROPIS_INJECT_TEST=1 -e TROPIS_NO_DUST=${{ matrix.no-dust }} \
+            ubuntu:24.04 bash -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update -qq && apt-get install -y -qq dmsetup e2fsprogs util-linux jq procps smartmontools kmod >/dev/null
+              modprobe -a dm_mod dm_flakey dm_delay dm_dust 2>/dev/null || true
+              bash /repo/hack/inject/test.sh /repo/bin/tropis /repo/bin/tropis-collector'
+
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: replay the development corpus
+        run: go run ./cmd/tropis eval --corpus eval/testdata --backend mock --out eval/results/dev --seed 1 --quiet
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dev-eval-report-not-publishable
+          path: eval/results/dev/
+
+  kind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: helm/kind-action@v1
+        with:
+          install_only: true
+      - uses: azure/setup-helm@v4
+      - name: install on kind and require a verdict
+        run: bash hack/kind-e2e.sh
+
+  dco:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: every commit is signed off
+        run: |
+          missing=0
+          for c in $(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}); do
+            if ! git log -1 --format=%B "$c" | grep -q '^Signed-off-by: '; then
+              echo "commit $c has no Signed-off-by line; see CONTRIBUTING.md"
+              missing=1
+            fi
+          done
+          exit $missing

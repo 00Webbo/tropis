@@ -1,0 +1,7 @@
+{
+  "scenarioId": "exhaustion-log-spam",
+  "relationship": "causal",
+  "rootCauseLayer": "kubernetes",
+  "faultType": "disk.exhaustion",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. A pod writing unbounded logs to a hostPath fills the node's disk; the kubelet reports DiskPressure and evicts other pods. The disk hardware is healthy — the workload is the cause of the host-layer symptom."
+}

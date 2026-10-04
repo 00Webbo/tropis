@@ -1,0 +1,6 @@
+{
+  "scenarioId": "containerd-kill-stable-defects",
+  "relationship": "coincidental",
+  "faultType": "runtime.containerd_kill",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. containerd is killed repeatedly and pods fail to start with sandbox errors; the disk carries old, stable defects. The runtime explains the pods; the disk does not."
+}

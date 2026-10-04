@@ -1,0 +1,7 @@
+{
+  "scenarioId": "degradation-fsync",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.progressive_degradation",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. Gradual degradation reaches the database's write-ahead log; fsync fails with EIO and the database refuses to continue."
+}

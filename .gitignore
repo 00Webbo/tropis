@@ -1,0 +1,20 @@
+# Binaries
+/bin/
+/dist/
+/tropis
+/tropis-collector
+*.exe
+
+# Test and coverage output
+*.test
+coverage.out
+coverage.html
+
+# Eval run output (results are published deliberately, not committed by accident)
+/eval/results/
+
+# Editor and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

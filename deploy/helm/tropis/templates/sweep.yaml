@@ -1,0 +1,59 @@
+# The sweep: pre-filter every node, analyse the candidates, write a
+# NodeHealthReport for each verdict. A CronJob, not an operator: nothing runs
+# between sweeps.
+{{- $args := list "sweep" (printf "--timeout=%s" .Values.sweep.timeout) }}
+{{- if .Values.sweep.all }}
+{{- $args = append $args "--all" }}
+{{- end }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "tropis.fullname" . }}-sweep
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tropis.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analyzer
+spec:
+  schedule: {{ .Values.sweep.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.sweep.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.sweep.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: {{ include "tropis.name" . }}
+            app.kubernetes.io/component: analyzer
+        spec:
+          restartPolicy: Never
+          {{- include "tropis.analyzerPod" (dict "root" . "args" $args) | nindent 10 }}
+{{- if .Values.sweep.runOnInstall }}
+---
+# One sweep straight after install or upgrade, so the first verdict does not
+# wait for the schedule.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tropis.fullname" . }}-sweep-initial
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tropis.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analyzer
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "0"
+spec:
+  backoffLimit: 4
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "tropis.name" . }}
+        app.kubernetes.io/component: analyzer
+    spec:
+      # Retried until the collectors on every node are ready to answer.
+      restartPolicy: OnFailure
+      {{- include "tropis.analyzerPod" (dict "root" . "args" $args) | nindent 6 }}
+{{- end }}

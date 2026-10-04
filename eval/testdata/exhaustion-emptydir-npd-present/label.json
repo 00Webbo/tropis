@@ -1,0 +1,7 @@
+{
+  "scenarioId": "exhaustion-emptydir",
+  "relationship": "causal",
+  "rootCauseLayer": "kubernetes",
+  "faultType": "disk.exhaustion",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. An emptyDir on the target filesystem is filled by a runaway job, producing DiskPressure and ephemeral-storage evictions."
+}

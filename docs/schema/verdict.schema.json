@@ -1,0 +1,166 @@
+{
+  "$id": "https://tropis.io/schema/v1alpha1/verdict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The result of one Tropis analysis pass over one node.",
+  "else": {
+    "not": {
+      "required": [
+        "rootCause"
+      ]
+    }
+  },
+  "if": {
+    "properties": {
+      "relationship": {
+        "const": "causal"
+      }
+    },
+    "required": [
+      "relationship"
+    ]
+  },
+  "properties": {
+    "agentVersion": {
+      "description": "The Tropis build that produced this verdict.",
+      "type": "string"
+    },
+    "backend": {
+      "additionalProperties": false,
+      "description": "Which model produced this verdict, and under which prompt version.",
+      "properties": {
+        "model": {
+          "description": "The specific model identifier.",
+          "type": "string"
+        },
+        "promptVersion": {
+          "description": "Version of the prompt template used. Results are only comparable within a prompt version.",
+          "type": "string"
+        },
+        "provider": {
+          "description": "Backend family, for example 'anthropic', 'ollama' or 'mock'.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "model",
+        "promptVersion"
+      ],
+      "type": "object"
+    },
+    "confidence": {
+      "description": "Calibrated confidence in this verdict, from 0 to 1. Report genuine uncertainty rather than anchoring high.",
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "evidence": {
+      "description": "The specific observations this verdict relied on. Required and non-empty, including for 'insufficient_evidence', where what was examined and found wanting is the evidence.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "collectedAt": {
+            "description": "When this specific observation was taken (RFC 3339).",
+            "format": "date-time",
+            "type": "string"
+          },
+          "excerpt": {
+            "description": "The specific line or value relied upon. Quote it rather than paraphrasing.",
+            "type": "string"
+          },
+          "ref": {
+            "description": "Where the observation sits within its source: a SMART attribute name, an event UID, a log offset.",
+            "type": "string"
+          },
+          "source": {
+            "description": "The collector that produced this observation, for example 'smartctl', 'kubelet-events' or 'pod-logs'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "collectedAt",
+          "ref",
+          "excerpt"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "inputDigest": {
+      "description": "Hash of the exact analysis input, tying this verdict to the bytes that produced it.",
+      "type": "string"
+    },
+    "nextStep": {
+      "description": "Advisory text for a human operator. Phrase as a recommendation, never as an instruction to act: Tropis is read-only and takes no action.",
+      "type": "string"
+    },
+    "node": {
+      "description": "The Kubernetes node name this verdict concerns.",
+      "type": "string"
+    },
+    "observedAt": {
+      "description": "When the underlying signals were collected (RFC 3339).",
+      "format": "date-time",
+      "type": "string"
+    },
+    "relationship": {
+      "description": "Whether the host-layer evidence explains the Kubernetes-layer symptoms. Use 'coincidental' when both a host anomaly and a workload problem are present but unrelated, and 'insufficient_evidence' when the evidence does not support a judgement either way. Both are expected answers, not failures.",
+      "enum": [
+        "causal",
+        "coincidental",
+        "insufficient_evidence"
+      ],
+      "type": "string"
+    },
+    "rootCause": {
+      "additionalProperties": false,
+      "description": "The confirmed fault. Set this only when relationship is 'causal'; omit it entirely otherwise.",
+      "properties": {
+        "description": {
+          "description": "Human-readable explanation of the fault.",
+          "type": "string"
+        },
+        "layer": {
+          "description": "Which layer the fault originates in.",
+          "enum": [
+            "host",
+            "kubernetes"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "layer",
+        "description"
+      ],
+      "type": "object"
+    },
+    "triggeredBy": {
+      "description": "Pre-filter rule IDs that raised this node as a candidate.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "node",
+    "observedAt",
+    "agentVersion",
+    "backend",
+    "relationship",
+    "confidence",
+    "evidence",
+    "inputDigest"
+  ],
+  "then": {
+    "required": [
+      "rootCause"
+    ]
+  },
+  "title": "Verdict",
+  "type": "object"
+}

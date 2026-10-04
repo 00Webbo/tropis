@@ -1,0 +1,7 @@
+{
+  "scenarioId": "degradation-slow-probes",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.progressive_degradation",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. A degrading drive retries internally; I/O latency climbs and the log writer's probes time out before any hard error is logged."
+}

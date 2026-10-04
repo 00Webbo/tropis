@@ -1,0 +1,7 @@
+{
+  "scenarioId": "fs-corruption-app-errors",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.fs_corruption",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. A data file's inode is corrupted; the application fails reading it with \"Structure needs cleaning\" and crash-loops."
+}

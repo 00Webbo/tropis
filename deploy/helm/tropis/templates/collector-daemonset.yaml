@@ -1,0 +1,89 @@
+# The host collector: one pod per node, reading SMART and serving it to the
+# analyser. It holds no Kubernetes API permissions and mounts no token.
+{{- $mode := .Values.collector.securityMode }}
+{{- if not (has $mode (list "privileged" "devicePlugin")) }}
+{{- fail "collector.securityMode must be privileged or devicePlugin" }}
+{{- end }}
+{{- if and (eq $mode "devicePlugin") (not .Values.collector.devices) }}
+{{- fail "collector.securityMode=devicePlugin needs collector.devices: the device plugin resources granting each disk" }}
+{{- end }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "tropis.fullname" . }}-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tropis.labels" . | nindent 4 }}
+    app.kubernetes.io/component: collector
+spec:
+  selector:
+    matchLabels:
+      {{- include "tropis.collectorSelector" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tropis.collectorSelector" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "tropis.fullname" . }}-collector
+      automountServiceAccountToken: false
+      # Deliberately absent: hostPID, hostNetwork, hostIPC.
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: collector
+          image: {{ include "tropis.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [/usr/local/bin/tropis-collector]
+          args:
+            - serve
+            - --addr=:{{ .Values.collector.port }}
+            - --history-interval={{ .Values.collector.historyInterval }}
+            - --history-max={{ .Values.collector.historyMax }}
+            {{- range .Values.collector.scan }}
+            - {{ . | quote }}
+            {{- end }}
+          ports:
+            - {name: http, containerPort: {{ .Values.collector.port }}}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 30
+          securityContext:
+            # SMART is read with ATA/NVMe passthrough ioctls on the raw
+            # device, which needs root.
+            runAsUser: 0
+            readOnlyRootFilesystem: true
+            {{- if eq $mode "privileged" }}
+            # Opening a host block device is denied by the container
+            # runtime's device cgroup unless the container is privileged, or
+            # a device plugin grants the device (securityMode: devicePlugin).
+            privileged: true
+            {{- else }}
+            privileged: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+              add: [SYS_RAWIO]
+            {{- end }}
+          resources:
+            requests:
+              {{- toYaml .Values.collector.resources.requests | nindent 14 }}
+            limits:
+              {{- toYaml .Values.collector.resources.limits | nindent 14 }}
+              {{- if eq $mode "devicePlugin" }}
+              {{- range .Values.collector.devices }}
+              {{ . }}: 1
+              {{- end }}
+              {{- end }}
+      {{- with .Values.collector.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.collector.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

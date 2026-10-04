@@ -1,0 +1,50 @@
+# Writes without bound to a hostPath on the target filesystem, beside a
+# bystander pod with ephemeral storage that DiskPressure will evict. Used with
+# disk-exhaustion.sh, which completes the fill deterministically.
+apiVersion: v1
+kind: Namespace
+metadata: {name: tropis-eval}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: log-spammer
+  namespace: tropis-eval
+  labels: {app: log-spammer, tropis.io/eval: "true"}
+spec:
+  nodeSelector: {kubernetes.io/hostname: "${TROPIS_NODE}"}
+  containers:
+    - name: spam
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - |
+          i=0
+          while true; do
+            head -c 1048576 /dev/urandom >> /buffer/spool-$((i / 512)).log
+            i=$((i + 1))
+          done
+      resources:
+        requests: {cpu: 50m, memory: 16Mi}
+        limits: {memory: 64Mi}
+      volumeMounts:
+        - {name: buffer, mountPath: /buffer}
+  volumes:
+    - name: buffer
+      hostPath: {path: "${TROPIS_MOUNT}/spool", type: DirectoryOrCreate}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: tropis-eval
+  labels: {app: frontend, tropis.io/eval: "true"}
+spec:
+  nodeSelector: {kubernetes.io/hostname: "${TROPIS_NODE}"}
+  containers:
+    - name: web
+      image: nginx:1.27
+      resources:
+        requests: {cpu: 50m, memory: 32Mi, ephemeral-storage: 100Mi}
+        limits: {memory: 128Mi, ephemeral-storage: 500Mi}

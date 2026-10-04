@@ -1,0 +1,41 @@
+# Appends and fsyncs segment files on a hostPath, and replays them on start.
+# Its probe writes a file, so write latency becomes a probe failure.
+apiVersion: v1
+kind: Namespace
+metadata: {name: tropis-eval}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: log-writer-0
+  namespace: tropis-eval
+  labels: {app: log-writer, tropis.io/eval: "true"}
+spec:
+  nodeSelector: {kubernetes.io/hostname: "${TROPIS_NODE}"}
+  containers:
+    - name: writer
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - |
+          cat /data/segment-* > /dev/null 2>&1 || { echo "replay failed: read error"; exit 1; }
+          i=0
+          while true; do
+            dd if=/dev/urandom of=/data/segment-$((i % 64)) bs=64k count=16 conv=fsync || { echo "write failed"; exit 1; }
+            i=$((i + 1))
+            sleep 1
+          done
+      resources:
+        requests: {cpu: 50m, memory: 16Mi}
+        limits: {memory: 64Mi}
+      livenessProbe:
+        exec: {command: [sh, -c, "date > /data/.probe && sync"]}
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 3
+      volumeMounts:
+        - {name: data, mountPath: /data}
+  volumes:
+    - name: data
+      hostPath: {path: "${TROPIS_MOUNT}/log-writer", type: DirectoryOrCreate}

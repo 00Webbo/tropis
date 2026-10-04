@@ -1,0 +1,5 @@
+{
+  "scenarioId": "stable-defects-config-crash",
+  "relationship": "coincidental",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. The disk has carried the same reallocated count for over a day, nothing pending. A web pod crash-loops on a missing environment variable and uses only configMap volumes. Both are real; they are unrelated."
+}

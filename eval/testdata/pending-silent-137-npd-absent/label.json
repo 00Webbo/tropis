@@ -1,0 +1,6 @@
+{
+  "scenarioId": "pending-silent-137",
+  "relationship": "insufficient_evidence",
+  "faultType": "disk.pending_sectors",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. New pending sectors and a pod killed with exit 137, with no logs or events to say whether it was an OOM kill or an I/O stall."
+}

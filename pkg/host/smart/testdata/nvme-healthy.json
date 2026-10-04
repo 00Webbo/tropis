@@ -1,0 +1,166 @@
+{
+  "json_format_version": [
+    1,
+    0
+  ],
+  "smartctl": {
+    "version": [
+      7,
+      4
+    ],
+    "pre_release": false,
+    "svn_revision": "5530",
+    "platform_info": "x86_64-linux-6.18.33.2-microsoft-standard-WSL2",
+    "build_info": "(local build)",
+    "argv": [
+      "smartctl",
+      "-j",
+      "-a",
+      "/dev/nvme0n1"
+    ],
+    "uint128_precision_bits": 128,
+    "exit_status": 0
+  },
+  "local_time": {
+    "time_t": 1789910281,
+    "asctime": "Sun Sep 20 13:18:01 2026 UTC"
+  },
+  "device": {
+    "name": "/dev/nvme0n1",
+    "info_name": "/dev/nvme0n1",
+    "type": "nvme",
+    "protocol": "NVMe"
+  },
+  "model_name": "Linux",
+  "serial_number": "92d88815dcb66d9ac3b8",
+  "firmware_version": "6.18.33.",
+  "nvme_pci_vendor": {
+    "id": 0,
+    "subsystem_id": 0
+  },
+  "nvme_ieee_oui_identifier": 0,
+  "nvme_controller_id": 1,
+  "nvme_version": {
+    "string": "2.1",
+    "value": 131328
+  },
+  "nvme_number_of_namespaces": 1024,
+  "nvme_namespaces": [
+    {
+      "id": 1,
+      "size": {
+        "blocks": 536870912,
+        "bytes": 9903520314283042199729864704,
+        "bytes_s": "9903520314283042199729864704",
+        "bytes_le": [
+          0,
+          0,
+          0,
+          32,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          32
+        ]
+      },
+      "capacity": {
+        "blocks": 536870912,
+        "bytes": 9903520314283042199729864704,
+        "bytes_s": "9903520314283042199729864704",
+        "bytes_le": [
+          0,
+          0,
+          0,
+          32,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          32
+        ]
+      },
+      "utilization": {
+        "blocks": 536870912,
+        "bytes": 9903520314283042199729864704,
+        "bytes_s": "9903520314283042199729864704",
+        "bytes_le": [
+          0,
+          0,
+          0,
+          32,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          32
+        ]
+      },
+      "formatted_lba_size": 1
+    }
+  ],
+  "user_capacity": {
+    "blocks": 536870912,
+    "bytes": 9903520314283042199729864704,
+    "bytes_s": "9903520314283042199729864704",
+    "bytes_le": [
+      0,
+      0,
+      0,
+      32,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      32
+    ]
+  },
+  "logical_block_size": 1,
+  "smart_support": {
+    "available": true,
+    "enabled": true
+  },
+  "smart_status": {
+    "passed": true,
+    "nvme": {
+      "value": 0
+    }
+  },
+  "nvme_smart_health_information_log": {
+    "critical_warning": 0,
+    "available_spare": 0,
+    "available_spare_threshold": 0,
+    "percentage_used": 0,
+    "data_units_read": 0,
+    "data_units_written": 0,
+    "host_reads": 0,
+    "host_writes": 0,
+    "controller_busy_time": 0,
+    "power_cycles": 0,
+    "power_on_hours": 0,
+    "unsafe_shutdowns": 0,
+    "media_errors": 0,
+    "num_err_log_entries": 0
+  },
+  "power_cycle_count": 0,
+  "power_on_time": {
+    "hours": 0
+  },
+  "nvme_error_information_log": {
+    "size": 128,
+    "read": 16,
+    "unread": 0
+  }
+}

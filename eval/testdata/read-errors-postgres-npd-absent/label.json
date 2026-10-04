@@ -1,0 +1,7 @@
+{
+  "scenarioId": "read-errors-postgres",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.read_errors",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. Reads of postgres's data blocks fail with EIO. SMART is clean, as it is for a failing cable or controller; the evidence is the I/O errors in a workload whose storage is a hostPath on the target disk."
+}

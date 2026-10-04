@@ -1,0 +1,7 @@
+{
+  "scenarioId": "io-timeout-postgres-probes",
+  "relationship": "causal",
+  "rootCauseLayer": "host",
+  "faultType": "disk.io_timeout",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. Every I/O is held for thirty seconds; postgres stalls, its liveness probe times out and the kubelet restarts it repeatedly."
+}

@@ -1,0 +1,26 @@
+# A healthy workload with storage on the target disk that does little I/O, for
+# scenarios where the disk has a finding and nothing is affected yet.
+apiVersion: v1
+kind: Namespace
+metadata: {name: tropis-eval}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: idle
+  namespace: tropis-eval
+  labels: {app: idle, tropis.io/eval: "true"}
+spec:
+  nodeSelector: {kubernetes.io/hostname: "${TROPIS_NODE}"}
+  containers:
+    - name: idle
+      image: busybox:1.36
+      command: [sh, -c, "while true; do date > /data/heartbeat; sleep 60; done"]
+      resources:
+        requests: {cpu: 5m, memory: 8Mi}
+        limits: {memory: 16Mi}
+      volumeMounts:
+        - {name: data, mountPath: /data}
+  volumes:
+    - name: data
+      hostPath: {path: "${TROPIS_MOUNT}/idle", type: DirectoryOrCreate}
