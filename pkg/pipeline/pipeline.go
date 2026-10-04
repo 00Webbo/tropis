@@ -16,6 +16,7 @@ import (
 
 	"github.com/00Webbo/tropis/pkg/host/prefilter"
 	"github.com/00Webbo/tropis/pkg/host/smart"
+	"github.com/00Webbo/tropis/pkg/notify"
 	"github.com/00Webbo/tropis/pkg/reason"
 	"github.com/00Webbo/tropis/pkg/schema"
 )
@@ -80,7 +81,12 @@ type K8sSource interface {
 
 // ReportWriter persists a verdict, e.g. as a NodeHealthReport.
 type ReportWriter interface {
-	Write(ctx context.Context, v schema.Verdict) error
+	// Write stores the verdict and returns the one it replaced, or nil if
+	// the node had none. The previous verdict is what notification compares
+	// against.
+	Write(ctx context.Context, v schema.Verdict) (previous *schema.Verdict, err error)
+	// Existing returns the latest stored verdict for every node that has one.
+	Existing(ctx context.Context) (map[string]schema.Verdict, error)
 }
 
 // Pipeline wires the collectors, pre-filter and backend together.
@@ -91,6 +97,11 @@ type Pipeline struct {
 	Thresholds prefilter.Thresholds
 	// Writer, when set, receives every verdict produced.
 	Writer ReportWriter
+	// Notifier, when set, is told about verdict changes the Policy deems
+	// notable. It needs a Writer: without stored verdicts there is nothing
+	// to compare against.
+	Notifier notify.Notifier
+	Policy   notify.Policy
 }
 
 // Outcome is what happened for one node.
@@ -99,7 +110,9 @@ type Outcome struct {
 	Raised      bool            `json:"raised"`
 	TriggeredBy []string        `json:"triggeredBy,omitempty"`
 	Verdict     *schema.Verdict `json:"verdict,omitempty"`
-	Error       string          `json:"error,omitempty"`
+	// Notified is the kind of change notified, if any.
+	Notified notify.Kind `json:"notified,omitempty"`
+	Error    string      `json:"error,omitempty"`
 }
 
 // AnalyzeNode diagnoses one node.
@@ -146,9 +159,19 @@ func (p *Pipeline) AnalyzeNode(ctx context.Context, node string, force bool) (Ou
 	}
 	out.Verdict = &v
 
-	if p.Writer != nil {
-		if err := p.Writer.Write(ctx, v); err != nil {
-			return out, fmt.Errorf("write report for %s: %w", node, err)
+	if p.Writer == nil {
+		return out, nil
+	}
+	previous, err := p.Writer.Write(ctx, v)
+	if err != nil {
+		return out, fmt.Errorf("write report for %s: %w", node, err)
+	}
+	if p.Notifier != nil {
+		if change := p.Policy.Evaluate(previous, v); change != nil {
+			out.Notified = change.Kind
+			if err := p.Notifier.Notify(ctx, *change); err != nil {
+				return out, fmt.Errorf("notify for %s: %w", node, err)
+			}
 		}
 	}
 	return out, nil
@@ -157,17 +180,30 @@ func (p *Pipeline) AnalyzeNode(ctx context.Context, node string, force bool) (Ou
 // Sweep pre-filters every node and analyses the candidates — or, with all,
 // every node regardless, for a first baseline or a demo. A failure on one
 // node is recorded in its outcome and does not stop the sweep.
+//
+// A node whose stored verdict is causal is always re-analysed, raised or
+// not. Otherwise a node that recovered, and so stopped being raised, would
+// keep its causal report forever, and anything alerting on that report
+// would never clear.
 func (p *Pipeline) Sweep(ctx context.Context, all bool) ([]Outcome, error) {
 	nodes, err := p.K8s.Nodes(ctx)
 	if err != nil {
 		return nil, err
+	}
+	var existing map[string]schema.Verdict
+	if p.Writer != nil {
+		if existing, err = p.Writer.Existing(ctx); err != nil {
+			return nil, fmt.Errorf("read existing reports: %w", err)
+		}
 	}
 	outcomes := make([]Outcome, 0, len(nodes))
 	for _, n := range nodes {
 		if err := ctx.Err(); err != nil {
 			return outcomes, err
 		}
-		o, err := p.AnalyzeNode(ctx, n, all)
+		prev, reported := existing[n]
+		force := all || (reported && prev.Relationship == schema.RelationshipCausal)
+		o, err := p.AnalyzeNode(ctx, n, force)
 		if err != nil {
 			o.Error = err.Error()
 		}

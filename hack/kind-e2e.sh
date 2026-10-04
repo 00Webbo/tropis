@@ -69,6 +69,8 @@ must create pods --subresource=eviction -n default
 must create pods --subresource=exec -n "$NS"
 must get secrets -n "$NS"
 must get pods --subresource=proxy -n kube-system
+# Kubernetes Events are an opt-in; a default install cannot create them.
+must create events.events.k8s.io -n default
 want=yes
 must get pods --subresource=proxy -n "$NS"
 must update nodehealthreports.tropis.io --subresource=status
@@ -82,6 +84,22 @@ if $K -n "$NS" exec ds/tropis-collector -- test -e /var/run/secrets/kubernetes.i
 	exit 1
 fi
 echo ok
+
+step "opt-in node events: enable, force a change, find the event"
+helm upgrade tropis deploy/helm/tropis --kube-context "$CTX" --namespace "$NS" --reuse-values \
+	--set notifications.events.enabled=true --set notifications.on=any --wait --timeout 5m >/dev/null
+want=yes
+must create events.events.k8s.io -n default
+want=no
+must create events.events.k8s.io -n kube-system
+# Remove the report so the next sweep sees a first verdict, which the "any"
+# policy notifies.
+$K delete nodehealthreport "$node" >/dev/null
+$K -n "$NS" create job --from=cronjob/tropis-sweep tropis-e2e-events >/dev/null
+$K -n "$NS" wait --for=condition=complete job/tropis-e2e-events --timeout=180s >/dev/null
+reason="$($K -n default get events.events.k8s.io --field-selector "regarding.name=$node" -o jsonpath="{.items[?(@.reportingController==\"tropis.io/sweep\")].reason}")"
+[ -n "$reason" ] || { echo "no Tropis event on $node"; $K -n "$NS" logs job/tropis-e2e-events; exit 1; }
+echo "event on $node: $reason"
 
 step "capture a fixture from the live node and replay it"
 # A scenario with no injected fault, captured from the live node: this checks

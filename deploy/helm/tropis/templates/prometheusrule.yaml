@@ -1,0 +1,37 @@
+{{- if .Values.alerting.prometheusRule.enabled }}
+# Alerts on NodeHealthReports, through metrics kube-state-metrics exports
+# from them. See docs/alerting.md for the kube-state-metrics configuration
+# this depends on.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "tropis.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tropis.labels" . | nindent 4 }}
+    {{- with .Values.alerting.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: tropis
+      rules:
+        - alert: TropisCausalVerdict
+          expr: tropis_nodehealthreport_confidence{relationship="causal"} >= {{ .Values.alerting.prometheusRule.minConfidence }}
+          labels:
+            severity: {{ .Values.alerting.prometheusRule.severity }}
+          annotations:
+            summary: "Tropis: {{`{{ $labels.node }}`}} has a causal {{`{{ $labels.layer }}`}}-layer verdict"
+            description: >-
+              Tropis judges that a {{`{{ $labels.layer }}`}}-layer fault on node {{`{{ $labels.node }}`}}
+              explains its Kubernetes-layer symptoms (confidence {{`{{ $value }}`}}).
+              Evidence and the advisory next step: kubectl get nodehealthreport {{`{{ $labels.node }}`}} -o yaml.
+              Tropis has taken no action.
+        - alert: TropisReportStale
+          # A sweep that has stopped producing verdicts looks like silence.
+          expr: time() - tropis_nodehealthreport_observed_timestamp_seconds > 3 * 3600
+          labels:
+            severity: info
+          annotations:
+            summary: "Tropis: no fresh verdict for {{`{{ $labels.node }}`}} in 3 hours"
+{{- end }}

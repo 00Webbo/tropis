@@ -1,0 +1,38 @@
+{{- if .Values.notifications.events.enabled }}
+# Opt-in: record verdict changes as Kubernetes Events on Nodes.
+#
+# This is the one write Tropis can make beyond its own NodeHealthReports, so
+# it is granted only when enabled, as create on events in the default
+# namespace — where Kubernetes keeps events about cluster-scoped objects like
+# Nodes — and nowhere else. An Event changes nothing about a node or its
+# workloads.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "tropis.fullname" . }}-node-events
+  namespace: default
+  labels:
+    {{- include "tropis.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analyzer
+rules:
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "tropis.fullname" . }}-node-events
+  namespace: default
+  labels:
+    {{- include "tropis.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analyzer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "tropis.fullname" . }}-node-events
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "tropis.fullname" . }}-analyzer
+    namespace: {{ .Release.Namespace }}
+{{- end }}

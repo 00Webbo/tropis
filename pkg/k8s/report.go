@@ -37,17 +37,19 @@ type ReportWriter struct {
 	Client dynamic.Interface
 }
 
-// Write creates or updates the node's report with this verdict.
-func (w *ReportWriter) Write(ctx context.Context, v tropis.Verdict) error {
+// Write creates or updates the node's report with this verdict, and returns
+// the verdict it replaced, or nil if the node had no report.
+func (w *ReportWriter) Write(ctx context.Context, v tropis.Verdict) (*tropis.Verdict, error) {
 	if err := v.Validate(); err != nil {
-		return fmt.Errorf("refusing to write an invalid verdict: %w", err)
+		return nil, fmt.Errorf("refusing to write an invalid verdict: %w", err)
 	}
 	status, err := StatusFromVerdict(v)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	reports := w.Client.Resource(ReportGVR)
 
+	var previous *tropis.Verdict
 	obj, err := reports.Get(ctx, v.Node, metav1.GetOptions{})
 	switch {
 	case apierrors.IsNotFound(err):
@@ -61,10 +63,16 @@ func (w *ReportWriter) Write(ctx context.Context, v tropis.Verdict) error {
 			"spec": map[string]any{"nodeName": v.Node},
 		}}
 		if obj, err = reports.Create(ctx, obj, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("create NodeHealthReport %s: %w", v.Node, err)
+			return nil, fmt.Errorf("create NodeHealthReport %s: %w", v.Node, err)
 		}
 	case err != nil:
-		return fmt.Errorf("get NodeHealthReport %s: %w", v.Node, err)
+		return nil, fmt.Errorf("get NodeHealthReport %s: %w", v.Node, err)
+	default:
+		// A report without a readable status — created but never filled,
+		// or written by an older version — counts as no previous verdict.
+		if prev, err := VerdictFromReport(obj); err == nil {
+			previous = &prev
+		}
 	}
 
 	// A label on the relationship lets `kubectl get nhr -l
@@ -77,15 +85,31 @@ func (w *ReportWriter) Write(ctx context.Context, v tropis.Verdict) error {
 		labels["tropis.io/relationship"] = string(v.Relationship)
 		obj.SetLabels(labels)
 		if obj, err = reports.Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("label NodeHealthReport %s: %w", v.Node, err)
+			return nil, fmt.Errorf("label NodeHealthReport %s: %w", v.Node, err)
 		}
 	}
 
 	obj.Object["status"] = status
 	if _, err := reports.UpdateStatus(ctx, obj, metav1.UpdateOptions{}); err != nil {
-		return fmt.Errorf("update NodeHealthReport %s status: %w", v.Node, err)
+		return nil, fmt.Errorf("update NodeHealthReport %s status: %w", v.Node, err)
 	}
-	return nil
+	return previous, nil
+}
+
+// Existing returns the stored verdict for every node that has a readable
+// report.
+func (w *ReportWriter) Existing(ctx context.Context) (map[string]tropis.Verdict, error) {
+	list, err := w.Client.Resource(ReportGVR).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("list NodeHealthReports: %w", err)
+	}
+	out := make(map[string]tropis.Verdict, len(list.Items))
+	for i := range list.Items {
+		if v, err := VerdictFromReport(&list.Items[i]); err == nil {
+			out[list.Items[i].GetName()] = v
+		}
+	}
+	return out, nil
 }
 
 // StatusFromVerdict renders a verdict as a report's .status. It is the same

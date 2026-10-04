@@ -71,7 +71,11 @@ func TestRBACIsReadOnly(t *testing.T) {
 				continue
 			}
 			roles++
-			for _, v := range violations(path, r.Rules) {
+			rules := r.Rules
+			if optIn, ok := optInGrants[filepath.ToSlash(path)]; ok {
+				rules = withoutOptIn(t, path, src, r.Kind, rules, optIn)
+			}
+			for _, v := range violations(path, rules) {
 				t.Error(v)
 			}
 		}
@@ -145,5 +149,65 @@ func TestUntemplate(t *testing.T) {
 	got := strings.TrimSpace(string(untemplate([]byte(src))))
 	if got != "name: placeholder-b" {
 		t.Errorf("untemplate = %q", got)
+	}
+}
+
+// optIn is a write permitted only in one template, only in a namespaced Role,
+// and only behind a values flag that defaults to off.
+type optIn struct {
+	gate     string // the template's opening condition
+	apiGroup string
+	resource string
+	verb     string
+}
+
+// optInGrants lists every exception to read-only, by template path. Adding to
+// this list is a change to SECURITY.md's promises and must be made there too.
+var optInGrants = map[string]optIn{
+	// Kubernetes Events on Nodes, for notifications. SECURITY.md, "Optional:
+	// Kubernetes Events".
+	"helm/tropis/templates/events-rbac.yaml": {
+		gate:     "{{- if .Values.notifications.events.enabled }}",
+		apiGroup: "events.k8s.io",
+		resource: "events",
+		verb:     "create",
+	},
+}
+
+// withoutOptIn checks an opt-in template is gated and namespaced, and removes
+// exactly the permitted grant so everything else in it is still checked.
+func withoutOptIn(t *testing.T, path string, src []byte, kind string, rules []rbacv1.PolicyRule, o optIn) []rbacv1.PolicyRule {
+	t.Helper()
+	if !bytes.HasPrefix(bytes.TrimSpace(src), []byte(o.gate)) {
+		t.Errorf("%s must open with %q so the grant exists only when opted in", path, o.gate)
+	}
+	if kind != "Role" {
+		t.Errorf("%s: the opt-in grant must be a namespaced Role, not a %s", path, kind)
+		return rules
+	}
+	var out []rbacv1.PolicyRule
+	for _, r := range rules {
+		exact := len(r.APIGroups) == 1 && r.APIGroups[0] == o.apiGroup &&
+			len(r.Resources) == 1 && r.Resources[0] == o.resource &&
+			len(r.Verbs) == 1 && r.Verbs[0] == o.verb
+		if !exact {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// The exception must stay exactly as narrow as declared.
+func TestOptInGrantIsNarrow(t *testing.T) {
+	src := []byte("{{- if .Values.notifications.events.enabled }}\nkind: Role\n")
+	o := optInGrants["helm/tropis/templates/events-rbac.yaml"]
+
+	wider := []rbacv1.PolicyRule{{APIGroups: []string{"events.k8s.io"}, Resources: []string{"events"}, Verbs: []string{"create", "delete"}}}
+	if len(violations("x", withoutOptIn(t, "x", src, "Role", wider, o))) == 0 {
+		t.Error("create+delete on events must not pass as the create-only exception")
+	}
+	other := []rbacv1.PolicyRule{{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"delete"}}}
+	if len(violations("x", withoutOptIn(t, "x", src, "Role", other, o))) == 0 {
+		t.Error("other writes in the opt-in template must still be caught")
 	}
 }

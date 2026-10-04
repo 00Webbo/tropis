@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/00Webbo/tropis/pkg/host/prefilter"
+	"github.com/00Webbo/tropis/pkg/notify"
 	"github.com/00Webbo/tropis/pkg/reason/mock"
 	"github.com/00Webbo/tropis/pkg/schema"
 )
@@ -56,11 +57,31 @@ func (f *fakeK8s) Collect(_ context.Context, n string) (*schema.K8sCapture, erro
 	}, nil
 }
 
-type spyWriter struct{ written []schema.Verdict }
+// spyWriter stores verdicts like a NodeHealthReport store, and records writes.
+type spyWriter struct {
+	written []schema.Verdict
+	store   map[string]schema.Verdict
+}
 
-func (s *spyWriter) Write(_ context.Context, v schema.Verdict) error {
+func (s *spyWriter) Write(_ context.Context, v schema.Verdict) (*schema.Verdict, error) {
 	s.written = append(s.written, v)
-	return nil
+	if s.store == nil {
+		s.store = map[string]schema.Verdict{}
+	}
+	var prev *schema.Verdict
+	if p, ok := s.store[v.Node]; ok {
+		prev = &p
+	}
+	s.store[v.Node] = v
+	return prev, nil
+}
+
+func (s *spyWriter) Existing(context.Context) (map[string]schema.Verdict, error) {
+	out := map[string]schema.Verdict{}
+	for k, v := range s.store {
+		out[k] = v
+	}
+	return out, nil
 }
 
 func newPipeline(t *testing.T, k *fakeK8s, w *spyWriter) *Pipeline {
@@ -145,7 +166,10 @@ func TestNPDRaisesNode(t *testing.T) {
 
 type failWriter struct{}
 
-func (failWriter) Write(context.Context, schema.Verdict) error { return errors.New("forbidden") }
+func (failWriter) Write(context.Context, schema.Verdict) (*schema.Verdict, error) {
+	return nil, errors.New("forbidden")
+}
+func (failWriter) Existing(context.Context) (map[string]schema.Verdict, error) { return nil, nil }
 
 func TestWriterFailureIsReported(t *testing.T) {
 	p := newPipeline(t, &fakeK8s{nodes: []string{"failing"}}, nil)
@@ -168,5 +192,76 @@ func TestSweepAll(t *testing.T) {
 	}
 	if outcomes[0].Verdict == nil || len(w.written) != 1 {
 		t.Errorf("sweep --all should analyse an unraised node: %+v", outcomes)
+	}
+}
+
+// recorder is a notifier that remembers what it was told.
+type recorder struct{ changes []notify.Change }
+
+func (r *recorder) Notify(_ context.Context, c notify.Change) error {
+	r.changes = append(r.changes, c)
+	return nil
+}
+func (r *recorder) Name() string { return "recorder" }
+
+func TestSweepNotifiesOnChangeOnly(t *testing.T) {
+	k := &fakeK8s{nodes: []string{"failing"}}
+	w := &spyWriter{}
+	rec := &recorder{}
+	p := newPipeline(t, k, w)
+	p.Notifier, p.Policy = rec, notify.PolicyCausal
+
+	// First sweep: a new causal verdict is notified.
+	if _, err := p.Sweep(context.Background(), false); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.changes) != 1 || rec.changes[0].Kind != notify.KindNew {
+		t.Fatalf("first sweep notified %+v", rec.changes)
+	}
+	// Second sweep, same state: nothing new to say.
+	outcomes, err := p.Sweep(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.changes) != 1 {
+		t.Errorf("an unchanged verdict was notified again: %+v", rec.changes)
+	}
+	if outcomes[0].Notified != "" {
+		t.Errorf("outcome.Notified = %q", outcomes[0].Notified)
+	}
+}
+
+// A node that recovers stops being raised by the pre-filter. Its causal
+// report must still be revisited, or it would stay causal forever.
+func TestSweepRevisitsCausalNodeThatRecovered(t *testing.T) {
+	k := &fakeK8s{nodes: []string{"healthy"}}
+	w := &spyWriter{store: map[string]schema.Verdict{
+		"healthy": {Node: "healthy", Relationship: schema.RelationshipCausal,
+			RootCause: &schema.RootCause{Layer: schema.LayerHost, Description: "was failing"}},
+	}}
+	rec := &recorder{}
+	p := newPipeline(t, k, w)
+	p.Notifier, p.Policy = rec, notify.PolicyCausal
+
+	outcomes, err := p.Sweep(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := outcomes[0]
+	if o.Raised {
+		t.Fatal("test setup: the healthy disk should not be raised")
+	}
+	if o.Verdict == nil {
+		t.Fatal("a node with a causal report must be re-analysed even when not raised")
+	}
+	if len(rec.changes) != 1 || rec.changes[0].Kind != notify.KindCleared {
+		t.Errorf("want a cleared notification, got %+v", rec.changes)
+	}
+	// A non-causal report does not force re-analysis.
+	if _, err := p.Sweep(context.Background(), false); err != nil {
+		t.Fatal(err)
+	}
+	if len(w.written) != 1 {
+		t.Errorf("a node with a non-causal report was re-analysed: %d writes", len(w.written))
 	}
 }

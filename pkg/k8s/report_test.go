@@ -49,8 +49,12 @@ func TestReportWriterCreatesAndUpdates(t *testing.T) {
 	w := &ReportWriter{Client: dyn}
 	ctx := context.Background()
 
-	if err := w.Write(ctx, sampleVerdict(tropis.RelationshipCausal)); err != nil {
+	prev, err := w.Write(ctx, sampleVerdict(tropis.RelationshipCausal))
+	if err != nil {
 		t.Fatalf("first write: %v", err)
+	}
+	if prev != nil {
+		t.Errorf("first write should replace nothing, got %+v", prev)
 	}
 	obj, err := dyn.Resource(ReportGVR).Get(ctx, "worker-02", metav1.GetOptions{})
 	if err != nil {
@@ -71,8 +75,12 @@ func TestReportWriterCreatesAndUpdates(t *testing.T) {
 	}
 
 	// A second verdict replaces the first on the same report.
-	if err := w.Write(ctx, sampleVerdict(tropis.RelationshipCoincidental)); err != nil {
+	prev, err = w.Write(ctx, sampleVerdict(tropis.RelationshipCoincidental))
+	if err != nil {
 		t.Fatalf("second write: %v", err)
+	}
+	if prev == nil || prev.Relationship != tropis.RelationshipCausal {
+		t.Errorf("second write should return the causal verdict it replaced, got %+v", prev)
 	}
 	obj, _ = dyn.Resource(ReportGVR).Get(ctx, "worker-02", metav1.GetOptions{})
 	got, _ = VerdictFromReport(obj)
@@ -92,7 +100,7 @@ func TestReportWriterCreatesAndUpdates(t *testing.T) {
 func TestReportWriterRefusesInvalidVerdict(t *testing.T) {
 	v := sampleVerdict(tropis.RelationshipCausal)
 	v.Evidence = nil
-	if err := (&ReportWriter{Client: fakeDynamic()}).Write(context.Background(), v); err == nil {
+	if _, err := (&ReportWriter{Client: fakeDynamic()}).Write(context.Background(), v); err == nil {
 		t.Error("an invalid verdict must not be written")
 	}
 }
@@ -155,5 +163,24 @@ func TestCRDShape(t *testing.T) {
 		if _, ok := status[f]; !ok {
 			t.Errorf("status schema is missing %s", f)
 		}
+	}
+}
+
+func TestReportWriterExisting(t *testing.T) {
+	w := &ReportWriter{Client: fakeDynamic()}
+	ctx := context.Background()
+	if got, err := w.Existing(ctx); err != nil || len(got) != 0 {
+		t.Fatalf("empty cluster: %v, %v", got, err)
+	}
+	v := sampleVerdict(tropis.RelationshipCausal)
+	if _, err := w.Write(ctx, v); err != nil {
+		t.Fatal(err)
+	}
+	got, err := w.Existing(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["worker-02"].Relationship != tropis.RelationshipCausal {
+		t.Errorf("existing = %+v", got)
 	}
 }

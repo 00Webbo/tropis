@@ -23,6 +23,17 @@ restart, or modify any workload or node. The only object it writes is its own
 This is a design constraint, not a default setting. There is no flag that
 enables remediation, because no remediation code exists.
 
+### Optional: Kubernetes Events
+
+One opt-in adds a second kind of write. With
+`notifications.events.enabled: true`, Tropis records each verdict change as a
+Kubernetes Event on the Node, and the chart grants it `create` on
+`events.k8s.io/events` **in the `default` namespace only**, where Kubernetes
+keeps events about Nodes. An Event changes nothing about a node or its
+workloads. It is off by default, the permission does not exist unless it is
+enabled, and `deploy/rbac_test.go` fails the build if that grant ever widens
+or loses its opt-in gate.
+
 ## What the host collector reads
 
 v1 collects a single host signal: **disk SMART data**, via `smartctl -j`.
@@ -96,16 +107,29 @@ data egress, run Tropis this way.
 provider's API for the candidate nodes only — never for every node on every
 sweep:
 
-- Parsed SMART attributes (numeric values, device model, serial number*)
-- Pod names, namespaces, phases, restart counts, and container statuses
-- Kubernetes event messages
-- Excerpts of container logs
-- Node conditions and labels
+- Parsed SMART attributes: numeric values, device path, model and firmware.
+  Serial numbers are never sent.
+- Pod names, namespaces, phases, restart counts, container statuses,
+  resource requests and limits, and volume types. Environment variables and
+  annotations are never sent.
+- Kubernetes event messages for the node and its pods
+- Logs of unhealthy containers only
+- The kubelet's node conditions. node-problem-detector conditions are never
+  sent.
 
-\* Device serial numbers are redacted by default.
+A node is sent only when the deterministic pre-filter raises it, when its
+latest report is `causal` (so a recovered node is re-checked and cleared),
+when it is analysed on request with `tropis analyze`, or when a sweep runs
+with `--all`. The two-stage triage design exists partly to keep this rare.
 
-Nothing is sent for nodes the deterministic pre-filter does not raise. The
-two-stage triage design exists partly for this reason.
+### Notifications
+
+If you configure Slack or a generic webhook, Tropis sends verdict changes to
+that endpoint: the node name, relationship, root cause, up to four evidence
+excerpts and the advisory next step. Every excerpt comes from the redacted
+model input, so a notification carries nothing the model was not already
+allowed to see — but it does leave the cluster, to whatever endpoint you
+configure. With a local backend and no notifiers, nothing leaves.
 
 ### Redaction
 

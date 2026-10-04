@@ -85,6 +85,24 @@ containers:
       - name: TROPIS_ESCALATION_MODEL
         value: {{ . | quote }}
       {{- end }}
+      - name: TROPIS_NOTIFY_ON
+        value: {{ .root.Values.notifications.on | quote }}
+      - name: TROPIS_EVENTS
+        value: {{ .root.Values.notifications.events.enabled | quote }}
+      {{- with .root.Values.notifications.slack.webhookSecret }}
+      {{- if .name }}
+      - name: TROPIS_SLACK_WEBHOOK_URL
+        valueFrom:
+          secretKeyRef: {name: {{ .name }}, key: {{ .key }}}
+      {{- end }}
+      {{- end }}
+      {{- with .root.Values.notifications.webhook.urlSecret }}
+      {{- if .name }}
+      - name: TROPIS_WEBHOOK_URL
+        valueFrom:
+          secretKeyRef: {name: {{ .name }}, key: {{ .key }}}
+      {{- end }}
+      {{- end }}
       {{- if .root.Values.backend.apiKeySecret.name }}
       - name: TROPIS_API_KEY
         valueFrom:

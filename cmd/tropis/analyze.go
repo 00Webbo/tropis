@@ -70,18 +70,18 @@ func (c *clusterFlags) clients() (kubernetes.Interface, dynamic.Interface, error
 	return cs, dyn, nil
 }
 
-func (c *clusterFlags) pipeline(bf *backendFlags, write bool) (*pipeline.Pipeline, error) {
+func (c *clusterFlags) pipeline(bf *backendFlags, write bool) (*pipeline.Pipeline, kubernetes.Interface, error) {
 	cs, dyn, err := c.clients()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cfg, err := bf.config()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	b, err := backend.New(cfg)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	p := &pipeline.Pipeline{
 		Host:       &k8s.HostFetcher{Client: cs, Namespace: c.namespace, Selector: c.selector},
@@ -92,7 +92,7 @@ func (c *clusterFlags) pipeline(bf *backendFlags, write bool) (*pipeline.Pipelin
 	if write {
 		p.Writer = &k8s.ReportWriter{Client: dyn}
 	}
-	return p, nil
+	return p, cs, nil
 }
 
 func runAnalyze(args []string, stdout, stderr io.Writer) int {
@@ -118,7 +118,7 @@ func runAnalyze(args []string, stdout, stderr io.Writer) int {
 		return exitUsage
 	}
 
-	p, err := cf.pipeline(&bf, *write)
+	p, _, err := cf.pipeline(&bf, *write)
 	if err != nil {
 		return fail(stderr, "%v", err)
 	}
@@ -159,9 +159,21 @@ func runSweep(args []string, stdout, stderr io.Writer) int {
 		return exitUsage
 	}
 
-	p, err := cf.pipeline(&bf, *write)
+	nc, err := notifyConfigFromEnv()
 	if err != nil {
 		return fail(stderr, "%v", err)
+	}
+	p, cs, err := cf.pipeline(&bf, *write)
+	if err != nil {
+		return fail(stderr, "%v", err)
+	}
+	if n := nc.notifiers(cs); n != nil {
+		// Changes are found by comparing with the stored report, so there
+		// is nothing to notify about without one.
+		if !*write {
+			return fail(stderr, "notifications need --write-reports: changes are detected against the stored NodeHealthReport")
+		}
+		p.Notifier, p.Policy = n, nc.policy
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -182,7 +194,14 @@ func runSweep(args []string, stdout, stderr io.Writer) int {
 			case o.Error != "":
 				fmt.Fprintf(stdout, "%-24s error: %s\n", o.Node, o.Error)
 			case o.Verdict != nil:
-				fmt.Fprintf(stdout, "%-24s %s (%.2f), raised by %s\n", o.Node, o.Verdict.Relationship, o.Verdict.Confidence, strings.Join(o.TriggeredBy, ", "))
+				line := fmt.Sprintf("%-24s %s (%.2f)", o.Node, o.Verdict.Relationship, o.Verdict.Confidence)
+				if len(o.TriggeredBy) > 0 {
+					line += ", raised by " + strings.Join(o.TriggeredBy, ", ")
+				}
+				if o.Notified != "" {
+					line += ", notified (" + string(o.Notified) + ")"
+				}
+				fmt.Fprintln(stdout, line)
 			default:
 				fmt.Fprintf(stdout, "%-24s not raised\n", o.Node)
 			}

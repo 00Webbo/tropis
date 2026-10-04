@@ -143,3 +143,37 @@ func TestCaptureUsage(t *testing.T) {
 		t.Errorf("unknown scenario: exit %d, %q", code, stderr)
 	}
 }
+
+func TestNotifyConfigFromEnv(t *testing.T) {
+	t.Setenv("TROPIS_SLACK_WEBHOOK_URL", "https://hooks.slack.example/T/B/x")
+	t.Setenv("TROPIS_EVENTS", "true")
+	t.Setenv("TROPIS_NOTIFY_ON", "any")
+	c, err := notifyConfigFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.policy != "any" || !c.events || c.slackURL == "" {
+		t.Errorf("config = %+v", c)
+	}
+	if n, ok := c.notifiers(nil).(interface{ Name() string }); !ok || n.Name() != "notifiers" {
+		t.Errorf("notifiers = %v", c.notifiers(nil))
+	}
+
+	t.Setenv("TROPIS_NOTIFY_ON", "sometimes")
+	if _, err := notifyConfigFromEnv(); err == nil {
+		t.Error("bad policy should be an error")
+	}
+}
+
+func TestNoNotifiersByDefault(t *testing.T) {
+	for _, k := range []string{"TROPIS_SLACK_WEBHOOK_URL", "TROPIS_WEBHOOK_URL", "TROPIS_EVENTS", "TROPIS_NOTIFY_ON"} {
+		t.Setenv(k, "")
+	}
+	c, err := notifyConfigFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.notifiers(nil) != nil {
+		t.Error("nothing configured should mean no notifiers")
+	}
+}

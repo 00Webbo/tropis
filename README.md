@@ -85,6 +85,12 @@ A sweep runs immediately on install and then every fifteen minutes. Only
 nodes the deterministic pre-filter raises are analysed, so on a healthy
 cluster the expected result is **no reports**.
 
+To hear about verdicts rather than poll for them, Tropis can post changes to
+**Slack** or any **webhook**, feed **Prometheus/Alertmanager** through
+kube-state-metrics, or record **Events** on the Node. It notifies on changes —
+a node becoming causal, or clearing — never on every sweep. See
+[docs/alerting.md](docs/alerting.md).
+
 To keep everything inside the cluster, point it at a local model instead:
 
 ```sh

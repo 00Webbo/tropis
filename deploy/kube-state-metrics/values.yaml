@@ -1,0 +1,52 @@
+# Values for the prometheus-community/kube-state-metrics chart, exporting
+# Tropis's NodeHealthReports as Prometheus metrics:
+#
+#   tropis_nodehealthreport_confidence{node, relationship, layer}
+#   tropis_nodehealthreport_observed_timestamp_seconds{node}
+#
+# The Tropis chart's PrometheusRule (alerting.prometheusRule.enabled) alerts on
+# these. See docs/alerting.md.
+#
+#   helm install ksm prometheus-community/kube-state-metrics \
+#     -n monitoring -f deploy/kube-state-metrics/values.yaml
+#
+# If you already run kube-state-metrics, merge the rbac and customResourceState
+# blocks below into its values instead.
+
+rbac:
+  extraRules:
+    # Read-only, on Tropis's reports only.
+    - apiGroups: ["tropis.io"]
+      resources: ["nodehealthreports"]
+      verbs: ["list", "watch"]
+
+customResourceState:
+  enabled: true
+  config:
+    kind: CustomResourceStateMetrics
+    spec:
+      resources:
+        - groupVersionKind:
+            group: tropis.io
+            version: v1alpha1
+            kind: NodeHealthReport
+          metricNamePrefix: tropis_nodehealthreport
+          labelsFromPath:
+            node: [metadata, name]
+          metrics:
+            - name: confidence
+              help: Confidence of the node's latest Tropis verdict, labelled with its relationship and root-cause layer.
+              each:
+                type: Gauge
+                gauge:
+                  path: [status]
+                  valueFrom: [confidence]
+                  labelsFromPath:
+                    relationship: [relationship]
+                    layer: [rootCause, layer]
+            - name: observed_timestamp_seconds
+              help: When the signals behind the node's latest Tropis verdict were collected.
+              each:
+                type: Gauge
+                gauge:
+                  path: [status, observedAt]

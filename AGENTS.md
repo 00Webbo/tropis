@@ -30,7 +30,7 @@ test guards a rule, do not weaken the test to make a change pass.
 
 | Rule | Why | Enforced by |
 |---|---|---|
-| Tropis is read-only. The only write is its own `NodeHealthReport`. | The project's core promise | `deploy/rbac_test.go`; `pkg/k8s` `TestCollectIsReadOnly` |
+| Tropis is read-only. The only write is its own `NodeHealthReport`, plus opt-in Node Events (create, `default` namespace only, off by default). Any new write goes in `optInGrants` and SECURITY.md together. | The project's core promise | `deploy/rbac_test.go`; `pkg/k8s` `TestCollectIsReadOnly`; `make kind-e2e` |
 | Nothing synthetic in `eval/fixtures/`. | Synthetic fixtures void the published numbers | `fixture.PublishableCorpus`; `tropis eval --publishable` |
 | Ground truth never reaches analysis. Only `fixture.LoadLabel*` reads `label.json`, only in the scoring phase. | Otherwise the eval measures recognition of its own test cases | `pkg/fixture` `TestLoaderCannotReachLabels`; `eval/runner` `TestLabelsAreWithheldFromAnalysis` |
 | Model input is built only by `reason.BuildInput`, which redacts. | No unredacted log content may leave the process | `pkg/reason` `TestPlantedCredentialsNeverReachModelInput` |

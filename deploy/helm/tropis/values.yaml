@@ -34,6 +34,44 @@ backend:
   # this one is consulted when the sweep claims causality or is unsure.
   escalationModel: ""
 
+# Notifications when a node's verdict changes. Sent only on change, never on
+# every sweep. Everything sent comes from a verdict, whose excerpts are
+# already redacted; it does leave the cluster, to the endpoint you configure.
+notifications:
+  # causal: when a node becomes causal, its root-cause layer changes, or it
+  #   stops being causal (default).
+  # any: any change of relationship or layer, and every node's first verdict.
+  on: causal
+  # Slack incoming webhook. The URL is a credential, so it is read from a
+  # Secret, never set as a plain value.
+  slack:
+    webhookSecret:
+      name: ""
+      key: url
+  # Generic JSON webhook: receives the previous and current verdicts.
+  webhook:
+    urlSecret:
+      name: ""
+      key: url
+  # Record a Kubernetes Event on the Node, visible in `kubectl describe node`
+  # and to any event exporter. Off by default: enabling it grants the
+  # analyser create on events, in the default namespace only — the one write
+  # beyond its own NodeHealthReports. See SECURITY.md.
+  events:
+    enabled: false
+
+# Alerting through Prometheus. Requires kube-state-metrics to export
+# NodeHealthReports as metrics; see docs/alerting.md for its configuration.
+alerting:
+  prometheusRule:
+    # Needs the Prometheus Operator's PrometheusRule CRD.
+    enabled: false
+    # Labels your Prometheus selects rules by, e.g. {release: prometheus}.
+    labels: {}
+    # Minimum confidence of a causal verdict that fires the alert.
+    minConfidence: 0.5
+    severity: warning
+
 # The host collector: a DaemonSet reading SMART on every node.
 collector:
   # How the collector gets at the disks.
