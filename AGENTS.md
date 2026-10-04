@@ -83,5 +83,14 @@ Background: `Tropis_Findings_and_Project_Plan.md` explains why;
 
 ## Commits
 
-Sign off every commit (`git commit -s`); CI rejects unsigned ones. Keep the
-subject short and imperative, and use the body to explain why.
+Releases are automated from commit messages, so the format matters:
+
+- **Conventional Commits**: `<type>[(scope)][!]: <description>`. `feat` bumps
+  the minor version and `fix` the patch (while 0.x); `docs`, `refactor`,
+  `test`, `build`, `ci` and `chore` release nothing. Pick the type for what
+  the change does to users, not for the files touched. CI rejects anything
+  else; `hack/check-commits.sh <base> <head>` runs the same check locally.
+- **Sign off** every commit (`git commit -s`); CI rejects unsigned ones.
+- Keep the subject short and imperative, and use the body to explain why.
+- Never edit `CHANGELOG.md` or the version in `Chart.yaml` by hand:
+  release-please owns both. See CONTRIBUTING.md, Releasing.

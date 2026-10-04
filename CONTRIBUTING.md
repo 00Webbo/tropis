@@ -71,11 +71,38 @@ issue to discuss it before writing code.
 
 ## Commit messages
 
-Short imperative subject line, prefixed with the area touched:
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/),
+because releases are automated from them: release-please reads the messages
+to choose the next version and write the changelog. A CI check enforces the
+format on every commit in a pull request, and on the PR title, which becomes
+the commit message when a PR is squash-merged.
 
 ```
-schema: reject non-causal verdicts carrying a root cause
+<type>[(scope)][!]: <short imperative description>
 ```
+
+| Type | Use for | Version (while 0.x) | Changelog |
+|---|---|---|---|
+| `feat` | new behaviour | minor | Features |
+| `fix` | a bug fix | patch | Bug fixes |
+| `perf` | a performance improvement | patch | Performance |
+| `security` | a security fix | patch | Security |
+| `deps` | dependency updates | patch | Dependencies |
+| `revert` | reverting a commit | patch | Reverts |
+| `docs`, `refactor`, `test`, `build`, `ci`, `chore` | everything else | no release | hidden |
+
+A `!` after the type, or a `BREAKING CHANGE:` footer, marks a breaking
+change, which bumps the minor version while Tropis is 0.x and the major
+version after 1.0. Use the scope for the area touched:
+
+```
+fix(smart): treat exit status bit 2 as a partial read, not a failure
+feat(notify)!: send the full verdict in webhook payloads
+```
+
+Use the body to explain why. Sign off every commit (`git commit -s`).
+
+`hack/check-commits.sh <base> <head> [title]` runs the same check locally.
 
 ## Licence
 
@@ -84,21 +111,26 @@ confirm you have the right to do so, per the DCO.
 
 ## Releasing
 
-The release version is the chart's `version` in
-`deploy/helm/tropis/Chart.yaml`, and `appVersion` must match it (a test
-enforces this). To release:
+Releases are automated with [release-please](https://github.com/googleapis/release-please).
 
-1. In a pull request, bump both `version` and `appVersion`, e.g. to `0.2.0`.
-2. Merge it to `main`.
+1. Merge pull requests to `main` as usual.
+2. When CI passes on `main`, release-please opens — or updates — a release
+   pull request titled `chore(main): release X.Y.Z`. It bumps `version` and
+   `appVersion` in `deploy/helm/tropis/Chart.yaml` and adds the changelog
+   section, both worked out from the commit messages since the last release.
+3. **Merging the release pull request publishes the release.** CI runs again,
+   release-please creates the tag and GitHub Release, and the publish job
+   attaches the artifacts: CLI archives with cosign-signed checksums, the
+   multi-arch image at `ghcr.io/00webbo/tropis:X.Y.Z` with SBOM and
+   provenance, and the chart at `oci://ghcr.io/00webbo/charts/tropis`, all
+   signed. Versions `0.x` are marked pre-release.
 
-When CI passes on `main`, the release workflow sees `v0.2.0` has not been
-released and publishes it: the git tag and GitHub Release with CLI archives
-and signed checksums, the multi-arch image at `ghcr.io/00webbo/tropis:0.2.0`
-with SBOM and provenance, and the chart at
-`oci://ghcr.io/00webbo/charts/tropis`, all signed with cosign. Merges that
-leave the version alone publish nothing. Versions `0.x` are marked
-pre-release.
+Merges containing only `docs`, `refactor`, `test`, `build`, `ci` or `chore` commits
+do not open a release pull request. To force a specific version, add a
+`Release-As: X.Y.Z` footer to a commit.
+
+The release pull request is opened by GitHub Actions, so no workflows run on
+it; that is expected. Its commits are signed off by the Actions bot.
 
 `make dist` and `make chart-package` build the same archives and chart
-locally. The workflow can also be run by hand from the Actions tab, which
-publishes `main`'s current version if it is unreleased.
+locally.
