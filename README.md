@@ -75,7 +75,7 @@ kubectl create namespace tropis-system
 kubectl -n tropis-system create secret generic tropis-anthropic \
   --from-literal=api-key="$ANTHROPIC_API_KEY"
 
-helm install tropis deploy/helm/tropis -n tropis-system \
+helm install tropis oci://ghcr.io/00webbo/charts/tropis -n tropis-system \
   --set backend.apiKeySecret.name=tropis-anthropic
 
 kubectl get nodehealthreports
@@ -94,7 +94,7 @@ a node becoming causal, or clearing — never on every sweep. See
 To keep everything inside the cluster, point it at a local model instead:
 
 ```sh
-helm install tropis deploy/helm/tropis -n tropis-system --create-namespace \
+helm install tropis oci://ghcr.io/00webbo/charts/tropis -n tropis-system --create-namespace \
   --set backend.provider=local \
   --set backend.baseURL=http://ollama.ollama:11434 \
   --set backend.model=qwen3:32b
@@ -108,7 +108,7 @@ on its verdicts.
 Diagnose one node on demand, from anywhere with cluster access:
 
 ```sh
-tropis analyze worker-03          # readable
+tropis analyze worker-03          # readable; the CLI is in each GitHub Release
 tropis analyze worker-03 --json   # the same document a NodeHealthReport carries
 ```
 
