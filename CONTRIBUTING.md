@@ -81,3 +81,24 @@ schema: reject non-causal verdicts carrying a root cause
 
 Contributions are accepted under Apache 2.0. By submitting a contribution you
 confirm you have the right to do so, per the DCO.
+
+## Releasing
+
+The release version is the chart's `version` in
+`deploy/helm/tropis/Chart.yaml`, and `appVersion` must match it (a test
+enforces this). To release:
+
+1. In a pull request, bump both `version` and `appVersion`, e.g. to `0.2.0`.
+2. Merge it to `main`.
+
+When CI passes on `main`, the release workflow sees `v0.2.0` has not been
+released and publishes it: the git tag and GitHub Release with CLI archives
+and signed checksums, the multi-arch image at `ghcr.io/00webbo/tropis:0.2.0`
+with SBOM and provenance, and the chart at
+`oci://ghcr.io/00webbo/charts/tropis`, all signed with cosign. Merges that
+leave the version alone publish nothing. Versions `0.x` are marked
+pre-release.
+
+`make dist` and `make chart-package` build the same archives and chart
+locally. The workflow can also be run by hand from the Actions tab, which
+publishes `main`'s current version if it is unreleased.

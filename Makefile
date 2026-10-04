@@ -115,11 +115,46 @@ eval-dev: ## Replay the synthetic dev corpus with the mock backend (measures not
 eval: ## Replay a corpus (CORPUS=eval/fixtures BACKEND=anthropic|local|mock SEED=n); refuses synthetic fixtures
 	$(GO) run ./cmd/tropis eval --corpus $(CORPUS) --publishable $(if $(BACKEND),--backend $(BACKEND)) $(if $(SEED),--seed $(SEED))
 
+##@ Release
+
+# The release version is the chart's version; see CONTRIBUTING.md, Releasing.
+CHART_VERSION := $(shell awk '/^version:/ {print $$2}' $(CHART)/Chart.yaml)
+PLATFORMS     := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
+DIST          := dist
+
+.PHONY: version
+version: ## Print the release version (from the chart)
+	@echo $(CHART_VERSION)
+
+.PHONY: dist
+dist: ## Build release archives and checksums for every platform into dist/
+	rm -rf $(DIST) && mkdir -p $(DIST)
+	@for p in $(PLATFORMS); do \
+		os=$${p%/*}; arch=$${p#*/}; ext=; [ "$$os" = windows ] && ext=.exe; \
+		name=tropis_$(CHART_VERSION)_$${os}_$${arch}; dir=$(DIST)/$$name; \
+		echo "==> $$name"; mkdir -p $$dir; \
+		GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 $(GO) build -trimpath \
+			-ldflags "-s -w -X github.com/00Webbo/tropis/pkg/reason.AgentVersion=v$(CHART_VERSION)" \
+			-o $$dir/tropis$$ext ./cmd/tropis; \
+		GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 $(GO) build -trimpath -ldflags "-s -w" \
+			-o $$dir/tropis-collector$$ext ./cmd/tropis-collector; \
+		cp LICENSE NOTICE README.md hack/npd-plugin/tropis-smart-check.sh hack/npd-plugin/smart-plugin-monitor.json $$dir/; \
+		tar -C $(DIST) -czf $(DIST)/$$name.tar.gz $$name; \
+		rm -rf $$dir; \
+	done
+	cd $(DIST) && sha256sum *.tar.gz > checksums.txt
+	@echo "==> $(DIST)/checksums.txt"; cat $(DIST)/checksums.txt
+
+.PHONY: chart-package
+chart-package: ## Package the Helm chart into dist/ (helm)
+	mkdir -p $(DIST)
+	helm package $(CHART) -d $(DIST)
+
 ##@ Misc
 
 .PHONY: clean
-clean: ## Remove build output and eval results
-	rm -rf $(BIN) eval/results
+clean: ## Remove build output, release artifacts and eval results
+	rm -rf $(BIN) $(DIST) eval/results
 
 .PHONY: help
 help: ## List targets

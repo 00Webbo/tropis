@@ -5,12 +5,17 @@
 # Built with -trimpath and no cgo, so the binaries are reproducible from the
 # same source and toolchain.
 
-FROM golang:1.27-alpine AS build
+# The build stage runs on the build machine's own platform and cross-compiles,
+# so a multi-arch image does not compile Go under emulation.
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 ARG VERSION=dev
+ARG TARGETOS
+ARG TARGETARCH
+ENV GOOS=$TARGETOS GOARCH=$TARGETARCH
 RUN CGO_ENABLED=0 go build -trimpath \
       -ldflags "-s -w -X github.com/00Webbo/tropis/pkg/reason.AgentVersion=${VERSION}" \
       -o /out/tropis ./cmd/tropis && \

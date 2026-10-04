@@ -1,38 +1,168 @@
 name: release
 
+# Publishes a release when a new version reaches main.
+#
+# The release version is the chart's version (deploy/helm/tropis/Chart.yaml).
+# After CI passes on a push to main, this checks whether v<version> has been
+# released; if not, it publishes it. Merges that do not change the version
+# release nothing. See CONTRIBUTING.md, Releasing.
+#
+# A release is: a git tag and GitHub Release with CLI archives and signed
+# checksums; a multi-arch container image with SBOM and provenance, signed;
+# and the Helm chart as an OCI artifact, signed.
+
 on:
-  push:
-    tags: ["v*"]
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  # Manual runs publish the current version of main, if it is unreleased.
+  workflow_dispatch:
 
 permissions:
-  contents: read
-  packages: write
-  id-token: write # keyless signing
+  contents: write # tag and GitHub Release
+  packages: write # ghcr.io image and chart
+  id-token: write # keyless cosign signing
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  image:
+  release:
+    # Only after CI passed on a push to main: never for a pull request, never
+    # on a red build.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Image names must be lowercase; the repository is 00Webbo/tropis.
-      - id: name
-        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+        with:
+          # The exact commit CI tested.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      - id: v
+        name: version
+        run: |
+          version="$(awk '/^version:/ {print $2}' deploy/helm/tropis/Chart.yaml)"
+          tag="v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          # Image and chart names must be lowercase; the owner is 00Webbo.
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "charts=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts" >> "$GITHUB_OUTPUT"
+          # 0.x is pre-release: the API is v1alpha1 and accuracy is unpublished.
+          case "$version" in 0.*|*-*) echo "prerelease=true" >> "$GITHUB_OUTPUT" ;; *) echo "prerelease=false" >> "$GITHUB_OUTPUT" ;; esac
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$tag is already released; bump the version in Chart.yaml to publish a new release."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::publishing $tag"
+          fi
+
+      - if: steps.v.outputs.publish == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - if: steps.v.outputs.publish == 'true'
+        uses: azure/setup-helm@v4
+      - if: steps.v.outputs.publish == 'true'
+        uses: sigstore/cosign-installer@v3
+
+      - if: steps.v.outputs.publish == 'true'
+        name: CLI archives and chart
+        run: |
+          make dist
+          make chart-package
+
+      - if: steps.v.outputs.publish == 'true'
+        uses: docker/setup-qemu-action@v3
+      - if: steps.v.outputs.publish == 'true'
+        uses: docker/setup-buildx-action@v3
+      - if: steps.v.outputs.publish == 'true'
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - id: build
+
+      - if: steps.v.outputs.publish == 'true'
+        id: image
         uses: docker/build-push-action@v6
         with:
           push: true
           platforms: linux/amd64,linux/arm64
-          build-args: VERSION=${{ github.ref_name }}
-          tags: ${{ steps.name.outputs.image }}:${{ github.ref_name }}
+          build-args: VERSION=${{ steps.v.outputs.tag }}
+          # The chart pulls the image by appVersion, which has no leading v.
+          tags: |
+            ${{ steps.v.outputs.image }}:${{ steps.v.outputs.version }}
+            ${{ steps.v.outputs.image }}:sha-${{ steps.v.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.v.outputs.version }}
+            org.opencontainers.image.revision=${{ steps.v.outputs.sha }}
+            org.opencontainers.image.licenses=Apache-2.0
           # SBOM and SLSA provenance attached to the image.
           sbom: true
           provenance: mode=max
-      - uses: sigstore/cosign-installer@v3
-      - name: sign
-        run: cosign sign --yes ${{ steps.name.outputs.image }}@${{ steps.build.outputs.digest }}
+
+      - if: steps.v.outputs.publish == 'true'
+        name: sign the image
+        run: cosign sign --yes "${{ steps.v.outputs.image }}@${{ steps.image.outputs.digest }}"
+
+      - if: steps.v.outputs.publish == 'true'
+        name: push and sign the chart
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          out="$(helm push "dist/tropis-${{ steps.v.outputs.version }}.tgz" "oci://${{ steps.v.outputs.charts }}" 2>&1)"
+          echo "$out"
+          digest="$(echo "$out" | sed -n 's/^Digest: //p')"
+          cosign sign --yes "${{ steps.v.outputs.charts }}/tropis@$digest"
+
+      - if: steps.v.outputs.publish == 'true'
+        name: sign the checksums
+        run: cosign sign-blob --yes --bundle dist/checksums.txt.sigstore.json dist/checksums.txt
+
+      - if: steps.v.outputs.publish == 'true'
+        name: GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.v.outputs.version }}
+          IMAGE: ${{ steps.v.outputs.image }}
+          CHARTS: ${{ steps.v.outputs.charts }}
+        run: |
+          cat > notes.md <<EOF
+          ## Install
+
+          \`\`\`sh
+          helm install tropis oci://$CHARTS/tropis --version $VERSION \\
+            --namespace tropis-system --create-namespace
+          \`\`\`
+
+          Image: \`$IMAGE:$VERSION\` (linux/amd64, linux/arm64). The CLI archives
+          below hold \`tropis\` and \`tropis-collector\` for each platform.
+
+          ## Verify
+
+          \`\`\`sh
+          cosign verify $IMAGE:$VERSION \\
+            --certificate-identity-regexp 'https://github.com/${{ github.repository }}/' \\
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          cosign verify-blob checksums.txt --bundle checksums.txt.sigstore.json \\
+            --certificate-identity-regexp 'https://github.com/${{ github.repository }}/' \\
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          sha256sum -c checksums.txt
+          \`\`\`
+
+          EOF
+          flags=()
+          [ "${{ steps.v.outputs.prerelease }}" = true ] && flags+=(--prerelease)
+          gh release create "${{ steps.v.outputs.tag }}" \
+            dist/*.tar.gz dist/checksums.txt dist/checksums.txt.sigstore.json "dist/tropis-$VERSION.tgz" \
+            --target "${{ steps.v.outputs.sha }}" \
+            --title "Tropis ${{ steps.v.outputs.tag }}" \
+            --notes-file notes.md --generate-notes "${flags[@]}"
