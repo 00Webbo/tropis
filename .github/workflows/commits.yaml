@@ -1,0 +1,29 @@
+name: commits
+
+# Checks commit messages and the PR title follow Conventional Commits, which
+# release-please reads to choose the version and write the changelog.
+#
+# Separate from ci.yaml so that editing a PR's title re-runs this check alone,
+# not the whole suite.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  conventional:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Conventional Commits
+        # The title is passed through the environment, never interpolated
+        # into the script, since it is user-controlled text.
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: bash hack/check-commits.sh "$BASE" "$HEAD" "$TITLE"
