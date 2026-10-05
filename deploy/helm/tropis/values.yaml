@@ -23,6 +23,11 @@ backend:
   baseURL: ""
   # For `local`: ollama or openai (vLLM, llama.cpp, LM Studio).
   localAPI: ollama
+  # For `local` with ollama: the context window requested per call. Ollama's
+  # own default is too small for a node's evidence, and Ollama truncates
+  # what does not fit; Tropis refuses a verdict from a truncated input.
+  # For openai-compatible servers, set the window on the server.
+  contextTokens: 16384
   # For `anthropic`: low, medium, high, xhigh or max. Empty is the API default.
   effort: ""
   # A Secret holding the API key, under `apiKeySecret.key`. Tropis never
