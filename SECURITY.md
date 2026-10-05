@@ -80,6 +80,11 @@ Pod status, events, container logs (current and previous), resource requests
 and limits, node conditions, and node-problem-detector conditions where
 present.
 
+This is read for every node on every sweep, because the pre-filter's
+Kubernetes-side rules run on it, in-process. Logs are read only for
+unhealthy containers, bounded per container. Reading is not sending: only the
+nodes the pre-filter raises reach a model (see below).
+
 Its RBAC contains **read verbs only** (`get`, `list`, `watch`) — with the
 single exception of create, update and patch on `nodehealthreports`, the
 agent's own output resource. A test (`deploy/rbac_test.go`) fails the build

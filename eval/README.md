@@ -95,3 +95,22 @@ controller or backplane does. The scenario set keeps both kinds, labelled
 truthfully, so the numbers show how Tropis does when its host signal has
 nothing to say, rather than hiding it. SMART-visible scenarios require real
 SATA hardware (`hardware: [real-sata]`); see `hack/inject/README.md`.
+
+SMART-clean faults reach the model only if the Kubernetes-side pre-filter
+rules (`pkg/k8s/triggers`) raise them: the kubelet's `DiskPressure`
+condition, storage evictions, or a libc storage error text (`Input/output
+error`, `Read-only file system`, `No space left on device`, `Structure needs
+cleaning`, `Disk quota exceeded`) from a failing container or in a Warning
+event. The signatures come from errno semantics, not from the corpus;
+changing them, or any pre-filter threshold, changes results like a prompt
+change does and must be recorded with them.
+
+### Known gap: I/O timeouts
+
+The `io-timeout-*` scenarios are not raised unless SMART moves. Slow storage
+shows up in Kubernetes only as probe timeouts and restarts, which look the
+same as CPU or network trouble, and crash loops, OOM kills, exit 137 and
+probe failures on their own are deliberately not triggers: raising on them
+would send a large share of all nodes to the model (proposal 0001, D1).
+These scenarios count against end-to-end detection. The decision is to be
+revisited with real negative-control data from the capture rig.
