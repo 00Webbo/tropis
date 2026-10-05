@@ -1,6 +1,7 @@
 package deploy
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -62,17 +63,30 @@ func TestReleasePleaseBumpsTheChart(t *testing.T) {
 	if !ok {
 		t.Fatal("release-please must manage the repository root as one package")
 	}
-	want := map[string]bool{"$.version": false, "$.appVersion": false}
+	// The generic updater rewrites only the version on lines carrying the
+	// marker, leaving the rest of Chart.yaml byte for byte. The yaml updater
+	// re-serialises the whole file, dropping the quotes Helm recommends on
+	// appVersion and reflowing the description.
+	var generic bool
 	for _, f := range root.ExtraFiles {
-		if f.Path == "deploy/helm/tropis/Chart.yaml" && f.Type == "yaml" {
-			if _, ok := want[f.JSONPath]; ok {
-				want[f.JSONPath] = true
+		if f.Path == "deploy/helm/tropis/Chart.yaml" {
+			if f.Type != "generic" {
+				t.Errorf("Chart.yaml must use the generic updater, not %q, which rewrites the whole file", f.Type)
 			}
+			generic = true
 		}
 	}
-	for path, found := range want {
-		if !found {
-			t.Errorf("release-please does not bump Chart.yaml %s", path)
+	if !generic {
+		t.Error("release-please does not update deploy/helm/tropis/Chart.yaml")
+	}
+	chart, err := os.ReadFile(filepath.Join("helm", "tropis", "Chart.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{"version", "appVersion"} {
+		line := regexp.MustCompile(`(?m)^` + field + `: .*$`).Find(chart)
+		if !bytes.Contains(line, []byte("# x-release-please-version")) {
+			t.Errorf("Chart.yaml %s line lacks the # x-release-please-version marker, so releases would not bump it: %q", field, line)
 		}
 	}
 	if !semver.MatchString(root.InitialVersion) {
