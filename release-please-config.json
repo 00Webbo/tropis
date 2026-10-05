@@ -25,8 +25,7 @@
         {"type": "chore", "section": "Chores", "hidden": true}
       ],
       "extra-files": [
-        {"type": "yaml", "path": "deploy/helm/tropis/Chart.yaml", "jsonpath": "$.version"},
-        {"type": "yaml", "path": "deploy/helm/tropis/Chart.yaml", "jsonpath": "$.appVersion"}
+        {"type": "generic", "path": "deploy/helm/tropis/Chart.yaml"}
       ]
     }
   }
