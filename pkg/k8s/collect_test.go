@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"github.com/00Webbo/tropis/pkg/k8s/triggers"
 	"github.com/00Webbo/tropis/pkg/schema"
 )
 
@@ -246,6 +247,12 @@ func TestUnhealthy(t *testing.T) {
 	for _, tt := range tests {
 		if got := Unhealthy(tt.s); got != tt.want {
 			t.Errorf("%s: Unhealthy = %v, want %v", tt.name, got, tt.want)
+		}
+		// The storage_error trigger reads the logs of failing containers.
+		// Every one must be a container whose logs are collected, or the
+		// rule would silently never fire on a live node.
+		if triggers.Failing(tt.s) && !Unhealthy(tt.s) {
+			t.Errorf("%s: triggers.Failing but not Unhealthy; its logs would never be captured", tt.name)
 		}
 	}
 }

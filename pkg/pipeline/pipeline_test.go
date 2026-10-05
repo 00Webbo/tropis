@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,23 +39,34 @@ func (f fakeHost) Fetch(_ context.Context, node string) (*schema.HostCapture, er
 }
 
 type fakeK8s struct {
-	nodes     []string
-	npd       map[string][]schema.RawJSON
-	collected []string
+	nodes []string
+	npd   map[string][]schema.RawJSON
+	// storageError lists nodes whose workload is crash-looping with a
+	// storage error in its log, as does the node "failing". Other nodes run
+	// a healthy pod.
+	storageError map[string]bool
+	collected    []string
 }
 
 func (f *fakeK8s) Nodes(context.Context) ([]string, error) { return f.nodes, nil }
-func (f *fakeK8s) NPDConditions(_ context.Context, n string) ([]schema.RawJSON, error) {
-	return f.npd[n], nil
-}
 func (f *fakeK8s) Collect(_ context.Context, n string) (*schema.K8sCapture, error) {
 	f.collected = append(f.collected, n)
+	if n != "failing" && !f.storageError[n] {
+		pod := `{"metadata":{"namespace":"db","name":"pg-0"},"spec":{"containers":[{"name":"pg"}]},` +
+			`"status":{"phase":"Running","containerStatuses":[{"name":"pg","ready":true,"restartCount":0,"state":{"running":{}}}]}}`
+		return &schema.K8sCapture{
+			Pods:          []schema.RawJSON{schema.RawJSON(pod)},
+			NPDConditions: f.npd[n],
+			CollectedAt:   at,
+		}, nil
+	}
 	pod := `{"metadata":{"namespace":"db","name":"pg-0"},"spec":{"containers":[{"name":"pg"}]},` +
 		`"status":{"phase":"Running","containerStatuses":[{"name":"pg","restartCount":4,"state":{"waiting":{"reason":"CrashLoopBackOff"}}}]}}`
 	return &schema.K8sCapture{
-		Pods:        []schema.RawJSON{schema.RawJSON(pod)},
-		Logs:        map[string]string{"db/pg-0/pg": "PANIC: could not fsync: Input/output error"},
-		CollectedAt: at,
+		Pods:          []schema.RawJSON{schema.RawJSON(pod)},
+		Logs:          map[string]string{"db/pg-0/pg": "PANIC: could not fsync: Input/output error"},
+		NPDConditions: f.npd[n],
+		CollectedAt:   at,
 	}, nil
 }
 
@@ -123,8 +136,11 @@ func TestSweep(t *testing.T) {
 	if n := byNode["no-collector"]; n.Error == "" {
 		t.Errorf("a node without a collector should record an error: %+v", n)
 	}
-	if len(k.collected) != 1 || k.collected[0] != "failing" {
-		t.Errorf("full Kubernetes capture ran for %v; only candidates should be captured", k.collected)
+	// The Kubernetes capture feeds the pre-filter, so every node with a host
+	// capture is collected — once. A raised node is analysed from the same
+	// capture, never fetched a second time.
+	if !reflect.DeepEqual(k.collected, []string{"failing", "healthy"}) {
+		t.Errorf("Kubernetes capture ran for %v; want each reachable node exactly once", k.collected)
 	}
 	if len(w.written) != 1 || w.written[0].Node != "failing" {
 		t.Errorf("reports written = %+v", w.written)
@@ -161,6 +177,55 @@ func TestNPDRaisesNode(t *testing.T) {
 	}
 	if out.TriggeredBy[0] != "npd.ReadonlyFilesystem" {
 		t.Errorf("triggeredBy = %v", out.TriggeredBy)
+	}
+}
+
+// A storage error in a failing container raises a node whose SMART data is
+// clean: the fault SMART cannot see.
+func TestKubernetesStorageErrorRaisesNode(t *testing.T) {
+	k := &fakeK8s{nodes: []string{"healthy"}, storageError: map[string]bool{"healthy": true}}
+	out, err := newPipeline(t, k, &spyWriter{}).AnalyzeNode(context.Background(), "healthy", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.Raised || out.Verdict == nil {
+		t.Errorf("a storage error in a crash-looping container should raise the node: %+v", out)
+	}
+	if !reflect.DeepEqual(out.TriggeredBy, []string{"k8s.storage_error"}) {
+		t.Errorf("triggeredBy = %v", out.TriggeredBy)
+	}
+	if len(k.collected) != 1 {
+		t.Errorf("Kubernetes capture ran %d times; want once", len(k.collected))
+	}
+}
+
+// Prefilter is the one function live and eval share; it must combine SMART,
+// NPD and Kubernetes triggers.
+func TestPrefilterCombinesTriggers(t *testing.T) {
+	host := schema.HostCapture{SMART: map[string]schema.RawJSON{"/dev/sdb": sample(t, "sata-failing.json")}, CollectedAt: at}
+	node := `{"metadata":{"name":"n"},"status":{"conditions":[{"type":"DiskPressure","status":"True"}]}}`
+	kc := schema.K8sCapture{
+		NodeJSON:      schema.RawJSON(node),
+		NPDConditions: []schema.RawJSON{schema.RawJSON(`{"type":"ReadonlyFilesystem","status":"True"}`)},
+	}
+	got := Prefilter(host, kc, prefilter.DefaultThresholds()).TriggeredBy()
+	want := map[string]bool{"k8s.disk_pressure": false, "npd.ReadonlyFilesystem": false}
+	var smartRule bool
+	for _, id := range got {
+		if _, ok := want[id]; ok {
+			want[id] = true
+		}
+		if strings.HasPrefix(id, "smart.") {
+			smartRule = true
+		}
+	}
+	for id, seen := range want {
+		if !seen {
+			t.Errorf("triggeredBy %v lacks %s", got, id)
+		}
+	}
+	if !smartRule {
+		t.Errorf("triggeredBy %v lacks a SMART rule", got)
 	}
 }
 

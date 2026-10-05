@@ -305,7 +305,7 @@ func analyseOne(ctx context.Context, b reason.Backend, c fixture.Case, order int
 	f := c.Fixture
 	r = CaseResult{Order: order, ScenarioID: f.ScenarioID, Variant: string(f.Variant), Dir: c.Dir}
 
-	pre := pipeline.Prefilter(f.Host, f.Kubernetes.NPDConditions, th)
+	pre := pipeline.Prefilter(f.Host, f.Kubernetes, th)
 	r.Raised = pre.Candidate()
 	r.TriggeredBy = pre.TriggeredBy()
 

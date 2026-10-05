@@ -37,11 +37,18 @@ type Result struct {
 	// Recorded separately from Findings because they are triggers only, never
 	// evidence — see NPDCondition.
 	NPDTriggers []string `json:"npdTriggers,omitempty"`
+
+	// KubernetesTriggers lists the Kubernetes-side rule IDs (k8s.*) that
+	// raised the node. They are evaluated by pkg/k8s/triggers and merged in
+	// by the pipeline; this package only carries them, so the host
+	// collector, which also builds a Result, stays free of Kubernetes code.
+	// They are not host findings and never appear in the NPD plugin output.
+	KubernetesTriggers []string `json:"kubernetesTriggers,omitempty"`
 }
 
 // Candidate reports whether the node should be sent to the reasoning layer.
 func (r Result) Candidate() bool {
-	return len(r.Findings) > 0 || len(r.NPDTriggers) > 0
+	return len(r.Findings) > 0 || len(r.NPDTriggers) > 0 || len(r.KubernetesTriggers) > 0
 }
 
 // TriggeredBy returns the distinct rule IDs that raised the node, sorted, for
@@ -52,6 +59,9 @@ func (r Result) TriggeredBy() []string {
 		seen[f.RuleID] = true
 	}
 	for _, t := range r.NPDTriggers {
+		seen[t] = true
+	}
+	for _, t := range r.KubernetesTriggers {
 		seen[t] = true
 	}
 	ids := make([]string, 0, len(seen))
