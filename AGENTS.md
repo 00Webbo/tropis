@@ -82,6 +82,7 @@ test guards a rule, do not weaken the test to make a change pass.
 | `pkg/schema` | `Verdict`, `Fixture`, `Label`: the source of truth |
 | `pkg/host/smart`, `pkg/host/prefilter` | SMART parsing; deterministic rules, also the NPD plugin |
 | `pkg/k8s` | Kubernetes collector, collector lookup, `NodeHealthReport` writer and CRD |
+| `pkg/k8s/triggers` | Kubernetes-side pre-filter rules (`k8s.*`): pure functions over a `K8sCapture`, no client |
 | `pkg/redact`, `pkg/reason` | Redaction; model input, prompt, output gate, backends |
 | `pkg/pipeline` | Live path, shared with the eval runner |
 | `eval/` | Scenarios, dev corpus, runner, report, capture (see `eval/README.md`) |
