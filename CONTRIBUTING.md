@@ -74,8 +74,9 @@ issue to discuss it before writing code.
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/),
 because releases are automated from them: release-please reads the messages
 to choose the next version and write the changelog. A CI check enforces the
-format on every commit in a pull request, and on the PR title, which becomes
-the commit message when a PR is squash-merged.
+format on every commit in a pull request, and on the PR title. Pull requests
+are rebase-merged, so each commit lands on `main` as written: make every
+commit a good changelog entry.
 
 ```
 <type>[(scope)][!]: <short imperative description>

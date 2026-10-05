@@ -37,6 +37,7 @@ test guards a rule, do not weaken the test to make a change pass.
 | Provider SDKs are imported only in their backend package (`pkg/reason/anthropic`). | A local backend must be supported exactly as well | `pkg/reason` `TestProviderSDKsStayInTheirPackages` |
 | NPD conditions are triggers, never evidence. | NPD collapses signal to booleans | `pkg/reason` `TestNPDNeverReachesModelInput`; `pkg/k8s` `TestNPDConditionsAreSplitFromNode` |
 | Malformed model output is an error, never a verdict. `reason.Finalize` never repairs. | A guessed verdict looks exactly like a real one | `pkg/reason` `TestFinalizeRejectsMalformedOutput` |
+| A truncated model input is an error, never a verdict. | A verdict from half the evidence looks exactly like one from all of it | `pkg/reason/local` `TestTruncatedInputIsAnError` |
 | `coincidental` and `insufficient_evidence` are real answers. | A reasoning layer that never returns them is broken | eval warnings; the prompt's examples |
 | Host signal is SMART only in v1. No kernel log, NIC, ECC, systemd or BMC collection. | Scope: one signal end to end first | review |
 | No remediation, provisioning, operator/reconcile loops, dashboards or multi-cluster code. | Out of scope for v1 | review — stop and ask instead |
@@ -62,6 +63,12 @@ test guards a rule, do not weaken the test to make a change pass.
   enforces it) and executable in git (`git update-index --chmod=+x`). Under
   `set -e`, a function whose last command is `[ ... ] && die` returns failure
   when the test is false; end such functions with `return 0`.
+- **Ollama truncates silently.** Its default context window (4096 tokens)
+  is smaller than a typical input (about 5k tokens), and it drops what does
+  not fit without an error. The local backend sends `num_ctx`
+  (`TROPIS_CONTEXT_TOKENS`, default 16384) and rejects a response whose
+  prompt token count cannot cover the input. If the prompt or the evidence
+  grows, check the default still fits.
 - **Injection scripts destroy data.** Only ever run them through
   `make inject-test` or on the capture rig. Never on a development machine.
 
@@ -94,3 +101,13 @@ Releases are automated from commit messages, so the format matters:
 - Keep the subject short and imperative, and use the body to explain why.
 - Never edit `CHANGELOG.md` or the version in `Chart.yaml` by hand:
   release-please owns both. See CONTRIBUTING.md, Releasing.
+- Pull requests are rebase-merged; merge commits and squash merging are
+  disabled. A merge commit repeats the PR's commits in the changelog.
+
+## Keeping this file current
+
+Update AGENTS.md in the same change whenever the project changes in a way
+it describes or should: a new rule or the test that enforces it, a new
+command or Make target, a new gotcha found the hard way, a moved package,
+or a changed workflow. A stale AGENTS.md misleads every agent that reads
+it.
