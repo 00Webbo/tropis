@@ -13,6 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/00Webbo/tropis/pkg/fixture"
+	"github.com/00Webbo/tropis/pkg/host/prefilter"
 	"github.com/00Webbo/tropis/pkg/schema"
 )
 
@@ -188,18 +190,150 @@ func TestPlantedCredentialsNeverReachModelInput(t *testing.T) {
 
 // NPD output is never evidence, even if a hand-assembled fixture leaves an
 // NPD condition on the node or in npdConditions.
+// NPD conditions are triggers, never evidence. They must not reach the model
+// by any route: not as conditions, and not as the "npd.<Type>" trigger names
+// the pre-filter derives from them. The triggers here are produced the way
+// pipeline.Prefilter produces them, so a renamed trigger cannot slip past.
 func TestNPDNeverReachesModelInput(t *testing.T) {
 	req := plantedRequest(t)
-	req.Kubernetes.NPDConditions = []schema.RawJSON{mustJSON(t, corev1.NodeCondition{Type: "KernelDeadlock", Status: "True"})}
+	req.Kubernetes.NPDConditions = []schema.RawJSON{
+		mustJSON(t, corev1.NodeCondition{Type: "KernelDeadlock", Status: "True"}),
+		mustJSON(t, corev1.NodeCondition{Type: "ReadonlyFilesystem", Status: "True"}),
+	}
+	req.TriggeredBy = append(req.TriggeredBy, npdTriggers(t, req.Kubernetes.NPDConditions)...)
+	if !containsPrefix(req.TriggeredBy, "npd.") {
+		t.Fatalf("test setup: expected npd.* triggers, got %v", req.TriggeredBy)
+	}
 
 	in, err := BuildInput(req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	text, _ := in.Text()
-	for _, npd := range []string{"ReadonlyFilesystem", "KernelDeadlock"} {
-		if strings.Contains(string(text), npd) {
-			t.Errorf("NPD condition %s reached model input", npd)
+	assertNPDAbsent(t, in, "KernelDeadlock", "ReadonlyFilesystem")
+}
+
+// The same check against a corpus case where NPD is present: its
+// ReadonlyFilesystem condition once reached the model as
+// "triggeredBy": ["npd.ReadonlyFilesystem"].
+func TestNPDNeverReachesModelInputFromFixture(t *testing.T) {
+	f, err := fixture.LoadFixture(filepath.Join("..", "..", "eval", "testdata", "fs-corruption-readonly-npd-present"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Kubernetes.NPDConditions) == 0 {
+		t.Fatal("test setup: fixture should carry NPD conditions")
+	}
+	triggers := npdTriggers(t, f.Kubernetes.NPDConditions)
+	if !containsPrefix(triggers, "npd.ReadonlyFilesystem") {
+		t.Fatalf("test setup: expected npd.ReadonlyFilesystem, got %v", triggers)
+	}
+
+	in, err := BuildInput(RequestFromFixture(f, triggers))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertNPDAbsent(t, in, "ReadonlyFilesystem")
+	if got := in.TriggeredBy(); len(got) != len(triggers) {
+		t.Errorf("triggeredBy should still be recorded for the verdict: %v", got)
+	}
+}
+
+// No trigger name of any kind reaches the model: a node arriving
+// pre-labelled primes it towards "causal". The verdict still records them.
+func TestTriggerNamesNeverReachModelInput(t *testing.T) {
+	triggers := []string{
+		prefilter.RuleHealthFailed,
+		prefilter.RulePendingSectors,
+		prefilter.RuleReallocatedGrowth,
+		"k8s.storage_error",
+		"npd.ReadonlyFilesystem",
+	}
+	req := plantedRequest(t)
+	req.TriggeredBy = triggers
+
+	in, err := BuildInput(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text, err := in.Text()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := UserMessage(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, s := range map[string]string{"document": string(text), "user message": msg, "system prompt": SystemPrompt()} {
+		if strings.Contains(s, "triggeredBy") {
+			t.Errorf("the %s carries a triggeredBy field", name)
+		}
+		for _, id := range triggers {
+			if strings.Contains(s, id) {
+				t.Errorf("trigger %s reached the %s", id, name)
+			}
+		}
+	}
+
+	v, err := Finalize([]byte(validCausal), in, testInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(v.TriggeredBy) != len(triggers) {
+		t.Errorf("verdict should still carry every trigger: %v", v.TriggeredBy)
+	}
+	for _, id := range triggers {
+		if !containsPrefix(v.TriggeredBy, id) {
+			t.Errorf("verdict lost trigger %s: %v", id, v.TriggeredBy)
+		}
+	}
+}
+
+// npdTriggers derives trigger names from raw NPD conditions as
+// pipeline.Prefilter does. pipeline cannot be imported here: it imports reason.
+func npdTriggers(t *testing.T, raw []schema.RawJSON) []string {
+	t.Helper()
+	var conds []prefilter.NPDCondition
+	for _, r := range raw {
+		var c prefilter.NPDCondition
+		if err := json.Unmarshal(r, &c); err != nil {
+			t.Fatal(err)
+		}
+		conds = append(conds, c)
+	}
+	var res prefilter.Result
+	res.ApplyNPD(conds, prefilter.DefaultNPDTriggerTypes)
+	return res.TriggeredBy()
+}
+
+func containsPrefix(list []string, prefix string) bool {
+	for _, s := range list {
+		if strings.HasPrefix(s, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// assertNPDAbsent checks both the document and the full user message a
+// backend sends.
+func assertNPDAbsent(t *testing.T, in *AnalysisInput, conditionTypes ...string) {
+	t.Helper()
+	text, err := in.Text()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := UserMessage(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, s := range map[string]string{"document": string(text), "user message": msg} {
+		if strings.Contains(s, "npd.") {
+			t.Errorf("an npd.* trigger reached the %s", name)
+		}
+		for _, ct := range conditionTypes {
+			if strings.Contains(s, ct) {
+				t.Errorf("NPD condition %s reached the %s", ct, name)
+			}
 		}
 	}
 }

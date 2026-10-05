@@ -5,13 +5,17 @@ import (
 	"fmt"
 )
 
-// PromptVersion identifies the prompt below. Eval results are comparable only
-// within a prompt version, so any edit to prompts/v1.md that could change
-// model output must come with a new file and a new version — never an edit in
-// place.
-const PromptVersion = "v1"
+// PromptVersion identifies what the model sees: the prompt below and the shape
+// of the document BuildInput produces. Eval results are comparable only within
+// a prompt version, so any change to either that could change model output
+// must come with a new version (and, for the prompt, a new file) — never an
+// edit in place.
+//
+// v2: prompt text identical to v1; trigger names (pre-filter rule IDs and NPD
+// conditions) were removed from the model input.
+const PromptVersion = "v2"
 
-//go:embed prompts/v1.md
+//go:embed prompts/v2.md
 var systemPrompt string
 
 // SystemPrompt returns the versioned system prompt. It is identical for every

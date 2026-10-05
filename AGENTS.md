@@ -35,7 +35,7 @@ test guards a rule, do not weaken the test to make a change pass.
 | Ground truth never reaches analysis. Only `fixture.LoadLabel*` reads `label.json`, only in the scoring phase. | Otherwise the eval measures recognition of its own test cases | `pkg/fixture` `TestLoaderCannotReachLabels`; `eval/runner` `TestLabelsAreWithheldFromAnalysis` |
 | Model input is built only by `reason.BuildInput`, which redacts. | No unredacted log content may leave the process | `pkg/reason` `TestPlantedCredentialsNeverReachModelInput` |
 | Provider SDKs are imported only in their backend package (`pkg/reason/anthropic`). | A local backend must be supported exactly as well | `pkg/reason` `TestProviderSDKsStayInTheirPackages` |
-| NPD conditions are triggers, never evidence. | NPD collapses signal to booleans | `pkg/reason` `TestNPDNeverReachesModelInput`; `pkg/k8s` `TestNPDConditionsAreSplitFromNode` |
+| NPD conditions are triggers, never evidence. No trigger name of any kind reaches the model. | NPD collapses signal to booleans; a pre-labelled node primes the model towards `causal` | `pkg/reason` `TestNPDNeverReachesModelInput`, `TestNPDNeverReachesModelInputFromFixture`, `TestTriggerNamesNeverReachModelInput`; `pkg/k8s` `TestNPDConditionsAreSplitFromNode` |
 | Malformed model output is an error, never a verdict. `reason.Finalize` never repairs. | A guessed verdict looks exactly like a real one | `pkg/reason` `TestFinalizeRejectsMalformedOutput` |
 | `coincidental` and `insufficient_evidence` are real answers. | A reasoning layer that never returns them is broken | eval warnings; the prompt's examples |
 | Host signal is SMART only in v1. No kernel log, NIC, ECC, systemd or BMC collection. | Scope: one signal end to end first | review |
@@ -47,9 +47,12 @@ test guards a rule, do not weaken the test to make a change pass.
   `deploy/helm/tropis/crds/` and everything in `eval/testdata/` are
   generated. Change the source and run `make generate`; never hand-edit
   them. Tests fail if they drift.
-- **The prompt is versioned.** Any change to `pkg/reason/prompts/v1.md` that
-  could alter model output needs a new file and a new `PromptVersion`, not
-  an edit in place: eval results are only comparable within a version.
+- **The prompt is versioned.** Any change to what the model sees that could
+  alter its output needs a new `PromptVersion`: the prompt file
+  (`pkg/reason/prompts/v2.md`, which also needs a new file rather than an
+  edit in place) and equally the model-input document `reason.BuildInput`
+  builds (adding, removing or reshaping a field). Eval results are only
+  comparable within a version.
 - **Scenarios are the capture plan.** `eval/scenarios/scenarios.yaml` drives
   both the real capture run and the dev corpus. A scenario expecting SMART to
   change must declare `hardware: [real-sata]`.
