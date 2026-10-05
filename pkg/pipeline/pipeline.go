@@ -16,6 +16,7 @@ import (
 
 	"github.com/00Webbo/tropis/pkg/host/prefilter"
 	"github.com/00Webbo/tropis/pkg/host/smart"
+	"github.com/00Webbo/tropis/pkg/k8s/triggers"
 	"github.com/00Webbo/tropis/pkg/notify"
 	"github.com/00Webbo/tropis/pkg/reason"
 	"github.com/00Webbo/tropis/pkg/schema"
@@ -23,8 +24,10 @@ import (
 
 // Prefilter runs the deterministic rules over raw captures exactly as the
 // live sweep does: SMART rules against the capture and its previous reading,
-// plus node-problem-detector conditions as triggers where present.
-func Prefilter(host schema.HostCapture, npd []schema.RawJSON, th prefilter.Thresholds) prefilter.Result {
+// the Kubernetes-side storage rules (pkg/k8s/triggers) against the
+// Kubernetes capture, plus node-problem-detector conditions as triggers
+// where present.
+func Prefilter(host schema.HostCapture, kc schema.K8sCapture, th prefilter.Thresholds) prefilter.Result {
 	report := parseSMART(host.SMART, host.CollectedAt)
 	var previous map[string]*smart.Device
 	if host.Previous != nil {
@@ -38,13 +41,14 @@ func Prefilter(host schema.HostCapture, npd []schema.RawJSON, th prefilter.Thres
 	res := prefilter.Evaluate(report, previous, th)
 
 	var conds []prefilter.NPDCondition
-	for _, raw := range npd {
+	for _, raw := range kc.NPDConditions {
 		var c prefilter.NPDCondition
 		if json.Unmarshal(raw, &c) == nil {
 			conds = append(conds, c)
 		}
 	}
 	res.ApplyNPD(conds, prefilter.DefaultNPDTriggerTypes)
+	res.KubernetesTriggers = triggers.RuleIDs(triggers.Evaluate(kc))
 	return res
 }
 
@@ -71,11 +75,13 @@ type HostSource interface {
 	Fetch(ctx context.Context, node string) (*schema.HostCapture, error)
 }
 
-// K8sSource supplies a node's Kubernetes capture, and the cheaper node-only
-// view a sweep needs to pre-filter.
+// K8sSource supplies a node's Kubernetes capture, and the list of nodes a
+// sweep visits.
+//
+// The capture carries the node's NPD conditions, split from the Node object,
+// so the pre-filter needs nothing else from the API server.
 type K8sSource interface {
 	Collect(ctx context.Context, node string) (*schema.K8sCapture, error)
-	NPDConditions(ctx context.Context, node string) ([]schema.RawJSON, error)
 	Nodes(ctx context.Context) ([]string, error)
 }
 
@@ -122,6 +128,11 @@ type Outcome struct {
 // pre-filter does not raise is left alone: sending every node's state to a
 // model on every sweep is both expensive and harmful, since a model asked
 // "is one causing the other" of two noisy streams is biased toward yes.
+//
+// The Kubernetes capture is taken before pre-filtering, because the
+// Kubernetes-side rules read it, and the same capture is then analysed: a
+// raised node is never fetched twice. Collect is bounded (one field-selected
+// pod list, event lists, and log tails only for failing containers).
 func (p *Pipeline) AnalyzeNode(ctx context.Context, node string, force bool) (Outcome, error) {
 	out := Outcome{Node: node}
 
@@ -129,21 +140,17 @@ func (p *Pipeline) AnalyzeNode(ctx context.Context, node string, force bool) (Ou
 	if err != nil {
 		return out, fmt.Errorf("host capture for %s: %w", node, err)
 	}
-	npd, err := p.K8s.NPDConditions(ctx, node)
+	k8s, err := p.K8s.Collect(ctx, node)
 	if err != nil {
-		return out, fmt.Errorf("node conditions for %s: %w", node, err)
+		return out, fmt.Errorf("kubernetes capture for %s: %w", node, err)
 	}
-	pre := Prefilter(*host, npd, p.Thresholds)
+	pre := Prefilter(*host, *k8s, p.Thresholds)
 	out.Raised = pre.Candidate()
 	out.TriggeredBy = pre.TriggeredBy()
 	if !out.Raised && !force {
 		return out, nil
 	}
 
-	k8s, err := p.K8s.Collect(ctx, node)
-	if err != nil {
-		return out, fmt.Errorf("kubernetes capture for %s: %w", node, err)
-	}
 	in, err := reason.BuildInput(reason.Request{
 		Node:        node,
 		Host:        *host,
