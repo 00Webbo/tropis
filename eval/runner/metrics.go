@@ -9,9 +9,15 @@ import (
 
 // Gate thresholds, fixed in advance of any result. "Diagnostic accuracy is
 // proven" otherwise means whatever is convenient on the day.
+//
+// The gate was first set on root-cause accuracy alone. Before any real
+// result existed, it was moved to end-to-end detection (proposal 0001, D2):
+// reasoning accuracy alone would let a pre-filter that never fires pass,
+// while an operator only ever sees faults that were raised and diagnosed.
+// The false-correlation bar is unchanged.
 const (
 	GateMinPositives            = 20
-	GateMinRootCauseAccuracy    = 0.80
+	GateMinEndToEndDetection    = 0.80
 	GateMaxFalseCorrelationRate = 0.10
 	calibrationBins             = 10
 	predictedError              = "error"
@@ -21,8 +27,18 @@ const (
 type Metrics struct {
 	Cases int `json:"cases"`
 
+	// EndToEndDetection is the fraction of positives the pre-filter raised
+	// and the reasoning layer then diagnosed correctly: what an operator of
+	// a live cluster experiences, and the number the gate applies to. Every
+	// fixture is analysed whether or not it was raised, but a live sweep
+	// analyses only what is raised, so this is at most both PrefilterRecall
+	// and RootCauseAccuracy.
+	EndToEndCorrect   int     `json:"endToEndCorrect"`
+	EndToEndDetection float64 `json:"endToEndDetection"`
+
 	// Positives are causal scenarios. RootCauseAccuracy is the fraction whose
-	// verdict names the right relationship and layer; errors count as wrong.
+	// verdict names the right relationship and layer, whether or not the
+	// pre-filter raised them; errors count as wrong.
 	Positives         int     `json:"positives"`
 	RootCauseCorrect  int     `json:"rootCauseCorrect"`
 	RootCauseAccuracy float64 `json:"rootCauseAccuracy"`
@@ -127,6 +143,9 @@ func computeMetrics(cases []CaseResult) Metrics {
 			}
 			if c.Raised {
 				raisedPositives++
+				if c.Score.Correct {
+					m.EndToEndCorrect++
+				}
 			}
 		case schema.RelationshipCoincidental:
 			m.NegativeControls++
@@ -148,6 +167,7 @@ func computeMetrics(cases []CaseResult) Metrics {
 		m.Errors = nil
 	}
 
+	m.EndToEndDetection = ratio(m.EndToEndCorrect, m.Positives)
 	m.RootCauseAccuracy = ratio(m.RootCauseCorrect, m.Positives)
 	m.FalseCorrelationRate = ratio(m.FalseCorrelations, m.NegativeControls)
 	m.RelationshipAccuracy = ratio(relCorrect, m.Cases)
@@ -216,12 +236,12 @@ func evaluateGate(r *Results) Gate {
 		return Gate{"not_applicable", fmt.Sprintf("%d positive scenarios; the gate needs at least %d", m.Positives, GateMinPositives)}
 	case m.NegativeControls == 0:
 		return Gate{"not_applicable", "no negative controls; the false-correlation rate cannot be measured"}
-	case m.RootCauseAccuracy >= GateMinRootCauseAccuracy && m.FalseCorrelationRate < GateMaxFalseCorrelationRate:
-		return Gate{"pass", fmt.Sprintf("root-cause accuracy %.1f%% ≥ %.0f%% and false-correlation rate %.1f%% < %.0f%%",
-			100*m.RootCauseAccuracy, 100*GateMinRootCauseAccuracy, 100*m.FalseCorrelationRate, 100*GateMaxFalseCorrelationRate)}
+	case m.EndToEndDetection >= GateMinEndToEndDetection && m.FalseCorrelationRate < GateMaxFalseCorrelationRate:
+		return Gate{"pass", fmt.Sprintf("end-to-end detection %.1f%% ≥ %.0f%% and false-correlation rate %.1f%% < %.0f%%",
+			100*m.EndToEndDetection, 100*GateMinEndToEndDetection, 100*m.FalseCorrelationRate, 100*GateMaxFalseCorrelationRate)}
 	default:
-		return Gate{"fail", fmt.Sprintf("root-cause accuracy %.1f%% (needs ≥ %.0f%%), false-correlation rate %.1f%% (needs < %.0f%%)",
-			100*m.RootCauseAccuracy, 100*GateMinRootCauseAccuracy, 100*m.FalseCorrelationRate, 100*GateMaxFalseCorrelationRate)}
+		return Gate{"fail", fmt.Sprintf("end-to-end detection %.1f%% (needs ≥ %.0f%%), false-correlation rate %.1f%% (needs < %.0f%%)",
+			100*m.EndToEndDetection, 100*GateMinEndToEndDetection, 100*m.FalseCorrelationRate, 100*GateMaxFalseCorrelationRate)}
 	}
 }
 

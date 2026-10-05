@@ -43,19 +43,27 @@ this, the eval would quietly measure the agent's ability to recognise its own
 test cases.
 
 Every fixture is analysed whether or not the pre-filter would have raised it,
-so reasoning accuracy and pre-filter recall are reported separately.
+so reasoning accuracy and pre-filter recall are reported separately, and
+combined into end-to-end detection.
 
 ## What is measured
 
+- **End-to-end detection** on positives: the pre-filter raised the fault
+  *and* the verdict names the right relationship and layer. A live sweep
+  analyses only what is raised, so this is the share of faults an operator
+  is told about correctly, and the number the gate applies to.
 - **Root-cause accuracy** on positives: the verdict names the right
-  relationship *and* the right layer. Errors count as wrong.
+  relationship *and* the right layer, whether or not the fault was raised.
+  Errors count as wrong.
 - **False-correlation rate** on negative controls: how often a coincidental
   scenario is called causal.
 - **Confusion matrix** across the three answers, plus errors.
 - **Calibration**: reliability bins, Brier score and expected calibration
   error. Confidence is reported, not trusted.
 - **Pre-filter recall**: how many positives the deterministic rules would
-  have raised at all.
+  have raised at all, and how many non-causal scenarios they raised anyway
+  (the cost side: every one is a model call on a node with nothing to
+  find).
 - All of the above **per NPD variant**. Every scenario is captured with and
   without node-problem-detector; if the columns differ materially, accuracy
   depends on NPD.
@@ -66,9 +74,18 @@ broken, whatever it scores on positives.
 
 ## The gate
 
-Fixed before any result was known: **correct root cause on ≥80% of at least
-20 injected faults, with a false-correlation rate under 10% on negative
+Fixed before any result was known: **end-to-end detection — raised by the
+pre-filter and given the correct root cause — on ≥80% of at least 20
+injected faults, with a false-correlation rate under 10% on negative
 controls.** The gate never passes on a corpus containing synthetic fixtures.
+
+The gate originally applied to root-cause accuracy alone. It was moved to
+end-to-end detection on 2026-10-05, before any capture from real hardware
+existed, by decision D2 of
+[proposal 0001](../docs/proposals/0001-kubernetes-triggers.md). Root-cause
+accuracy counts every fixture, raised or not, so a pre-filter that never
+fired could still pass; an operator only ever hears about faults that were
+raised. The false-correlation bar is unchanged.
 
 ## SMART-visible and SMART-clean faults
 

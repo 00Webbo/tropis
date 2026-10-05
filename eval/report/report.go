@@ -46,8 +46,8 @@ func Markdown(r *runner.Results) string {
 
 	w("## Gate\n\n")
 	w("**%s** — %s\n\n", strings.ToUpper(strings.ReplaceAll(r.Gate.Status, "_", " ")), r.Gate.Reason)
-	w("The bar, fixed before any result: correct root cause on ≥%.0f%% of at least %d injected faults, with a false-correlation rate under %.0f%% on negative controls.\n\n",
-		100*runner.GateMinRootCauseAccuracy, runner.GateMinPositives, 100*runner.GateMaxFalseCorrelationRate)
+	w("The bar, fixed before any result: end-to-end detection — raised by the pre-filter *and* given the correct root cause — on ≥%.0f%% of at least %d injected faults, with a false-correlation rate under %.0f%% on negative controls. (Moved from root-cause accuracy alone before any real result; see docs/proposals/0001.)\n\n",
+		100*runner.GateMinEndToEndDetection, runner.GateMinPositives, 100*runner.GateMaxFalseCorrelationRate)
 
 	if len(r.Warnings) > 0 {
 		w("## Warnings\n\n")
@@ -74,9 +74,13 @@ func Markdown(r *runner.Results) string {
 		}
 		w("| %s | %s |\n", name, strings.Join(vals, " | "))
 	}
-	row("Root-cause accuracy (positives)", func(m runner.Metrics) string {
+	row("End-to-end detection (positives raised and correct)", func(m runner.Metrics) string {
+		return fmt.Sprintf("%s (%d/%d)", pct(m.EndToEndDetection), m.EndToEndCorrect, m.Positives)
+	})
+	row("Root-cause accuracy (positives, all analysed)", func(m runner.Metrics) string {
 		return fmt.Sprintf("%s (%d/%d)", pct(m.RootCauseAccuracy), m.RootCauseCorrect, m.Positives)
 	})
+	row("Pre-filter recall (positives raised)", func(m runner.Metrics) string { return pct(m.PrefilterRecall) })
 	row("False-correlation rate (negative controls)", func(m runner.Metrics) string {
 		return fmt.Sprintf("%s (%d/%d)", pct(m.FalseCorrelationRate), m.FalseCorrelations, m.NegativeControls)
 	})
@@ -84,7 +88,9 @@ func Markdown(r *runner.Results) string {
 		return fmt.Sprintf("%d/%d", m.CausalClaimsOnNonCausal, m.NonCausal)
 	})
 	row("Relationship accuracy (all)", func(m runner.Metrics) string { return pct(m.RelationshipAccuracy) })
-	row("Pre-filter recall (positives raised)", func(m runner.Metrics) string { return pct(m.PrefilterRecall) })
+	row("Pre-filter raised non-causal scenarios", func(m runner.Metrics) string {
+		return fmt.Sprintf("%d/%d", m.PrefilterRaisedNonCausal, m.NonCausal)
+	})
 	row("Brier score (lower is better)", func(m runner.Metrics) string { return fmt.Sprintf("%.3f", m.Calibration.Brier) })
 	row("Expected calibration error", func(m runner.Metrics) string { return fmt.Sprintf("%.3f", m.Calibration.ECE) })
 	w("\nNPD is optional enrichment: if the two variant columns differ materially, accuracy depends on NPD being installed.\n\n")
