@@ -105,10 +105,40 @@ func TestCalibrationPerfect(t *testing.T) {
 	}
 }
 
+// End-to-end detection counts a positive only when it was both raised and
+// diagnosed correctly; a correct verdict on an unraised fixture would never
+// have happened in a live cluster.
+func TestEndToEndDetection(t *testing.T) {
+	host := layer(schema.LayerHost)
+	raised := func(c CaseResult, r bool) CaseResult { c.Raised = r; return c }
+	cases := []CaseResult{
+		raised(scored(verdict("causal", "host", 0.9), "causal", host, "npd-absent"), true),               // raised, correct
+		raised(scored(verdict("causal", "host", 0.9), "causal", host, "npd-absent"), false),              // correct, never raised
+		raised(scored(verdict("coincidental", "", 0.6), "causal", host, "npd-absent"), true),             // raised, wrong
+		raised(scored(verdict("causal", "kubernetes", 0.9), "causal", host, "npd-absent"), true),         // raised, wrong layer
+		raised(scored(verdict("coincidental", "", 0.6), "coincidental", nil, "npd-absent"), true),        // not a positive
+		raised(scored(verdict("causal", "host", 0.9), "insufficient_evidence", nil, "npd-absent"), true), // not a positive
+	}
+	m := computeMetrics(cases)
+	if m.Positives != 4 || m.EndToEndCorrect != 1 || m.EndToEndDetection != 0.25 {
+		t.Errorf("positives %d end-to-end %d detection %v", m.Positives, m.EndToEndCorrect, m.EndToEndDetection)
+	}
+	if m.RootCauseCorrect != 2 || m.PrefilterRecall != 0.75 {
+		t.Errorf("root-cause correct %d, recall %v", m.RootCauseCorrect, m.PrefilterRecall)
+	}
+	if m.PrefilterRaisedNonCausal != 2 {
+		t.Errorf("raised non-causal = %d", m.PrefilterRaisedNonCausal)
+	}
+}
+
 func TestGate(t *testing.T) {
-	mk := func(synthetic bool, pos, correct, neg, falseCo int) *Results {
+	// rootCause is root-cause accuracy over all analysed positives;
+	// endToEnd counts only those the pre-filter also raised.
+	mk := func(synthetic bool, pos, rootCause, endToEnd, neg, falseCo int) *Results {
 		r := &Results{Synthetic: synthetic}
-		r.Metrics = Metrics{Positives: pos, RootCauseCorrect: correct, RootCauseAccuracy: ratio(correct, pos),
+		r.Metrics = Metrics{Positives: pos,
+			RootCauseCorrect: rootCause, RootCauseAccuracy: ratio(rootCause, pos),
+			EndToEndCorrect: endToEnd, EndToEndDetection: ratio(endToEnd, pos),
 			NegativeControls: neg, FalseCorrelations: falseCo, FalseCorrelationRate: ratio(falseCo, neg)}
 		return r
 	}
@@ -117,12 +147,14 @@ func TestGate(t *testing.T) {
 		r    *Results
 		want string
 	}{
-		{"synthetic never passes", mk(true, 40, 40, 12, 0), "not_applicable"},
-		{"too few positives", mk(false, 19, 19, 10, 0), "not_applicable"},
-		{"no negative controls", mk(false, 20, 20, 0, 0), "not_applicable"},
-		{"passes at the bar", mk(false, 20, 16, 10, 0), "pass"},
-		{"fails on accuracy", mk(false, 20, 15, 10, 0), "fail"},
-		{"fails at exactly 10% false correlation", mk(false, 20, 20, 10, 1), "fail"},
+		{"synthetic never passes", mk(true, 40, 40, 40, 12, 0), "not_applicable"},
+		{"too few positives", mk(false, 19, 19, 19, 10, 0), "not_applicable"},
+		{"no negative controls", mk(false, 20, 20, 20, 0, 0), "not_applicable"},
+		{"passes at the bar", mk(false, 20, 16, 16, 10, 0), "pass"},
+		{"fails on end-to-end detection", mk(false, 20, 15, 15, 10, 0), "fail"},
+		// Perfect reasoning does not pass if the pre-filter missed the faults.
+		{"fails when reasoning is right but faults were not raised", mk(false, 20, 20, 15, 10, 0), "fail"},
+		{"fails at exactly 10% false correlation", mk(false, 20, 20, 20, 10, 1), "fail"},
 	}
 	for _, tt := range tests {
 		if g := evaluateGate(tt.r); g.Status != tt.want {

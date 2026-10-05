@@ -121,8 +121,10 @@ func runEval(args []string, stdout, stderr io.Writer) int {
 
 	m := res.Metrics
 	fmt.Fprintf(stdout, "%d fixtures in %s\n", m.Cases, res.FinishedAt.Sub(res.StartedAt).Round(time.Millisecond))
-	fmt.Fprintf(stdout, "root-cause accuracy %.1f%% (%d/%d), false-correlation rate %.1f%% (%d/%d)\n",
+	fmt.Fprintf(stdout, "end-to-end detection %.1f%% (%d/%d), root-cause accuracy %.1f%% (%d/%d), pre-filter recall %.1f%%, false-correlation rate %.1f%% (%d/%d)\n",
+		100*m.EndToEndDetection, m.EndToEndCorrect, m.Positives,
 		100*m.RootCauseAccuracy, m.RootCauseCorrect, m.Positives,
+		100*m.PrefilterRecall,
 		100*m.FalseCorrelationRate, m.FalseCorrelations, m.NegativeControls)
 	fmt.Fprintf(stdout, "gate: %s — %s\n", res.Gate.Status, res.Gate.Reason)
 	for _, warn := range res.Warnings {
