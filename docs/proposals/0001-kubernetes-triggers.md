@@ -1,6 +1,8 @@
 # Proposal 0001: Kubernetes-side pre-filter triggers
 
-Status: **draft, awaiting decisions D1–D3**
+Status: **accepted** (2026-10-05). D1: probe timeouts are not triggers, and
+the gap is recorded. D2: gate on end-to-end detection. D3: `PromptVersion`
+v2.
 
 ## Problem
 
