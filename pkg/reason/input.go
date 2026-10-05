@@ -21,9 +21,11 @@ import (
 // Request is everything BuildInput needs: raw captures, exactly as a live
 // node or a fixture provides them.
 type Request struct {
-	Node        string
-	Host        schema.HostCapture
-	Kubernetes  schema.K8sCapture
+	Node       string
+	Host       schema.HostCapture
+	Kubernetes schema.K8sCapture
+	// TriggeredBy is recorded on the verdict only. It never reaches the
+	// model: trigger names would prime it, and NPD ones are not evidence.
 	TriggeredBy []string
 }
 
@@ -47,12 +49,17 @@ type AnalysisInput struct {
 	// node is the real node name, for the verdict. The document the model
 	// reads carries the redacted form, which differs when nodes are named by
 	// IP address.
-	node       string
-	doc        Document
-	text       []byte
-	digest     string
-	refs       map[string]refInfo
-	redactions map[string]int
+	node string
+	// triggeredBy is kept beside the document, not in it: it is recorded on
+	// the verdict but never shown to the model. A node arriving pre-labelled
+	// ("npd.ReadonlyFilesystem", "smart.pending_sectors") primes the model
+	// towards "causal", and NPD conditions must never be evidence.
+	triggeredBy []string
+	doc         Document
+	text        []byte
+	digest      string
+	refs        map[string]refInfo
+	redactions  map[string]int
 }
 
 type refInfo struct {
@@ -64,11 +71,12 @@ type refInfo struct {
 // Document is the structure the model reads. Every citable item carries a
 // Ref, and a verdict's evidence must cite Refs that exist here.
 type Document struct {
-	Node        string    `json:"node"`
-	ObservedAt  time.Time `json:"observedAt"`
-	TriggeredBy []string  `json:"triggeredBy,omitempty"`
-	Host        HostDoc   `json:"host"`
-	Kubernetes  K8sDoc    `json:"kubernetes"`
+	// There is deliberately no TriggeredBy here: trigger names must never
+	// reach the model. See AnalysisInput.triggeredBy.
+	Node       string    `json:"node"`
+	ObservedAt time.Time `json:"observedAt"`
+	Host       HostDoc   `json:"host"`
+	Kubernetes K8sDoc    `json:"kubernetes"`
 }
 
 // HostDoc is the host layer: SMART only in v1.
@@ -225,12 +233,13 @@ func BuildInput(req Request) (*AnalysisInput, error) {
 	triggered := append([]string(nil), req.TriggeredBy...)
 	sort.Strings(triggered)
 
+	in.triggeredBy = triggered
+
 	doc := Document{
-		Node:        req.Node,
-		ObservedAt:  observedAt(req),
-		TriggeredBy: triggered,
-		Host:        host,
-		Kubernetes:  k8s,
+		Node:       req.Node,
+		ObservedAt: observedAt(req),
+		Host:       host,
+		Kubernetes: k8s,
 	}
 
 	// Redact every string in the document, in field order, before anything
@@ -652,8 +661,9 @@ func (in *AnalysisInput) Node() string { return in.node }
 // ObservedAt is when the signals were collected.
 func (in *AnalysisInput) ObservedAt() time.Time { return in.doc.ObservedAt }
 
-// TriggeredBy lists the pre-filter rules that raised the node.
-func (in *AnalysisInput) TriggeredBy() []string { return append([]string(nil), in.doc.TriggeredBy...) }
+// TriggeredBy lists the pre-filter rules that raised the node, for the
+// verdict. It is not part of the document the model reads.
+func (in *AnalysisInput) TriggeredBy() []string { return append([]string(nil), in.triggeredBy...) }
 
 // Digest is the SHA-256 of the exact redacted text a model receives.
 func (in *AnalysisInput) Digest() string { return in.digest }
