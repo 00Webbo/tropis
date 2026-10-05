@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -53,6 +54,14 @@ type Config struct {
 	// servers require one.
 	APIKey string
 
+	// ContextTokens is the context window requested from Ollama, as
+	// num_ctx. Zero means DefaultContextTokens. Ollama's own default is
+	// smaller than a typical Tropis input, and Ollama truncates an input
+	// that does not fit without reporting an error. OpenAI-compatible
+	// servers fix the window when the model is loaded, so this is not sent
+	// to them.
+	ContextTokens int
+
 	// Timeout bounds one request. Zero means five minutes: local models on
 	// modest hardware can be slow on a large input.
 	Timeout time.Duration
@@ -60,6 +69,16 @@ type Config struct {
 	// HTTP overrides the client, for tests.
 	HTTP *http.Client
 }
+
+// DefaultContextTokens is the default Ollama context window: room for the
+// prompt, a node's redacted evidence and the verdict.
+const DefaultContextTokens = 16384
+
+// maxBytesPerToken bounds how many bytes of input one token can stand for.
+// Tokenizers average three to four bytes per token on Tropis input, so a
+// server reporting fewer than len(input)/maxBytesPerToken prompt tokens
+// cannot have read the whole input.
+const maxBytesPerToken = 6
 
 // Backend calls a self-hosted model.
 type Backend struct{ cfg Config }
@@ -74,6 +93,12 @@ func New(cfg Config) (*Backend, error) {
 	}
 	if cfg.API != APIOllama && cfg.API != APIOpenAI {
 		return nil, fmt.Errorf("local backend: unknown API %q (want %q or %q)", cfg.API, APIOllama, APIOpenAI)
+	}
+	if cfg.ContextTokens < 0 {
+		return nil, fmt.Errorf("local backend: context tokens must not be negative, got %d", cfg.ContextTokens)
+	}
+	if cfg.ContextTokens == 0 {
+		cfg.ContextTokens = DefaultContextTokens
 	}
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 5 * time.Minute
@@ -107,47 +132,76 @@ func (b *Backend) Analyze(ctx context.Context, in *reason.AnalysisInput) (schema
 	}
 
 	var text string
+	var promptTokens int
 	switch b.cfg.API {
 	case APIOllama:
-		text, err = b.ollama(ctx, messages)
+		text, promptTokens, err = b.ollama(ctx, messages)
 	case APIOpenAI:
-		text, err = b.openai(ctx, messages)
+		text, promptTokens, err = b.openai(ctx, messages)
 	}
 	if err != nil {
+		return schema.Verdict{}, err
+	}
+	if err := checkNotTruncated(messages, promptTokens); err != nil {
 		return schema.Verdict{}, err
 	}
 	return reason.Finalize([]byte(text), in, b.Describe())
 }
 
-func (b *Backend) ollama(ctx context.Context, messages []chatMessage) (string, error) {
+// ErrInputTruncated means the server read only part of the input. A verdict
+// from part of the evidence would look exactly like one from all of it, so
+// it is an error.
+var ErrInputTruncated = errors.New("local backend: the server truncated the input")
+
+// checkNotTruncated rejects a response whose reported prompt token count is
+// too small to cover the input. Ollama, on both of its APIs, drops the part
+// of an input that does not fit its context window and answers anyway. A
+// server that reports no count cannot be checked.
+func checkNotTruncated(messages []chatMessage, promptTokens int) error {
+	if promptTokens <= 0 {
+		return nil
+	}
+	n := 0
+	for _, m := range messages {
+		n += len(m.Content)
+	}
+	if promptTokens*maxBytesPerToken < n {
+		return fmt.Errorf("%w: it read %d tokens of a %d-byte input; raise its context window (TROPIS_CONTEXT_TOKENS, or the server's own setting)",
+			ErrInputTruncated, promptTokens, n)
+	}
+	return nil
+}
+
+func (b *Backend) ollama(ctx context.Context, messages []chatMessage) (string, int, error) {
 	req := map[string]any{
 		"model":    b.cfg.Model,
 		"messages": messages,
 		"stream":   false,
 		"format":   reason.OutputSchema(),
 		// Deterministic decoding: the eval measures the model, not the dice.
-		"options": map[string]any{"temperature": 0},
+		"options": map[string]any{"temperature": 0, "num_ctx": b.cfg.ContextTokens},
 	}
 	var resp struct {
 		Message struct {
 			Content string `json:"content"`
 		} `json:"message"`
-		DoneReason string `json:"done_reason"`
-		Error      string `json:"error"`
+		DoneReason      string `json:"done_reason"`
+		Error           string `json:"error"`
+		PromptEvalCount int    `json:"prompt_eval_count"`
 	}
 	if err := b.post(ctx, "/api/chat", req, &resp); err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if resp.Error != "" {
-		return "", fmt.Errorf("local backend: %s", resp.Error)
+		return "", 0, fmt.Errorf("local backend: %s", resp.Error)
 	}
 	if resp.DoneReason == "length" {
-		return "", fmt.Errorf("%w: response truncated at the model's length limit", reason.ErrMalformedOutput)
+		return "", 0, fmt.Errorf("%w: response truncated at the model's length limit", reason.ErrMalformedOutput)
 	}
-	return resp.Message.Content, nil
+	return resp.Message.Content, resp.PromptEvalCount, nil
 }
 
-func (b *Backend) openai(ctx context.Context, messages []chatMessage) (string, error) {
+func (b *Backend) openai(ctx context.Context, messages []chatMessage) (string, int, error) {
 	req := map[string]any{
 		"model":       b.cfg.Model,
 		"messages":    messages,
@@ -169,21 +223,24 @@ func (b *Backend) openai(ctx context.Context, messages []chatMessage) (string, e
 			} `json:"message"`
 			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
+		Usage struct {
+			PromptTokens int `json:"prompt_tokens"`
+		} `json:"usage"`
 	}
 	if err := b.post(ctx, "/v1/chat/completions", req, &resp); err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if len(resp.Choices) == 0 {
-		return "", fmt.Errorf("%w: server returned no choices", reason.ErrMalformedOutput)
+		return "", 0, fmt.Errorf("%w: server returned no choices", reason.ErrMalformedOutput)
 	}
 	c := resp.Choices[0]
 	if c.Message.Refusal != "" {
-		return "", fmt.Errorf("%w: %s", reason.ErrRefused, c.Message.Refusal)
+		return "", 0, fmt.Errorf("%w: %s", reason.ErrRefused, c.Message.Refusal)
 	}
 	if c.FinishReason == "length" {
-		return "", fmt.Errorf("%w: response truncated at the model's length limit", reason.ErrMalformedOutput)
+		return "", 0, fmt.Errorf("%w: response truncated at the model's length limit", reason.ErrMalformedOutput)
 	}
-	return c.Message.Content, nil
+	return c.Message.Content, resp.Usage.PromptTokens, nil
 }
 
 func (b *Backend) post(ctx context.Context, path string, body, out any) error {

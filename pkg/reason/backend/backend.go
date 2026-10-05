@@ -39,6 +39,10 @@ type Config struct {
 	// API is the local wire protocol: ollama (default) or openai.
 	API string
 
+	// ContextTokens is the local (ollama) context window. Zero uses the
+	// backend default.
+	ContextTokens int
+
 	// APIKey authenticates. For anthropic, empty defers to the SDK's own
 	// credential resolution.
 	APIKey string
@@ -92,11 +96,12 @@ func single(cfg Config, model string) (reason.Backend, error) {
 		}), nil
 	case Local:
 		return local.New(local.Config{
-			BaseURL: cfg.BaseURL,
-			Model:   model,
-			API:     local.API(cfg.API),
-			APIKey:  cfg.APIKey,
-			Timeout: cfg.Timeout,
+			BaseURL:       cfg.BaseURL,
+			Model:         model,
+			API:           local.API(cfg.API),
+			APIKey:        cfg.APIKey,
+			ContextTokens: cfg.ContextTokens,
+			Timeout:       cfg.Timeout,
 		})
 	case Mock:
 		return mock.New(), nil
@@ -111,6 +116,7 @@ func single(cfg Config, model string) (reason.Backend, error) {
 //	TROPIS_MODEL               model name
 //	TROPIS_BASE_URL            endpoint
 //	TROPIS_LOCAL_API           ollama | openai
+//	TROPIS_CONTEXT_TOKENS      ollama context window, e.g. 16384
 //	TROPIS_API_KEY             API key (anthropic also honours ANTHROPIC_API_KEY)
 //	TROPIS_EFFORT              anthropic effort level
 //	TROPIS_TIMEOUT             request timeout, e.g. 2m
@@ -133,6 +139,13 @@ func FromEnv() (Config, error) {
 			return cfg, fmt.Errorf("TROPIS_TIMEOUT: %w", err)
 		}
 		cfg.Timeout = d
+	}
+	if s := os.Getenv("TROPIS_CONTEXT_TOKENS"); s != "" {
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			return cfg, fmt.Errorf("TROPIS_CONTEXT_TOKENS: %w", err)
+		}
+		cfg.ContextTokens = n
 	}
 	if s := os.Getenv("TROPIS_DISABLE_FALLBACKS"); s != "" {
 		v, err := strconv.ParseBool(s)

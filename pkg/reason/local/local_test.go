@@ -133,9 +133,84 @@ func TestLocalErrors(t *testing.T) {
 	}
 }
 
+func TestOllamaRequestsAContextWindow(t *testing.T) {
+	for _, tt := range []struct {
+		configured, want int
+	}{{0, DefaultContextTokens}, {32768, 32768}} {
+		srv, got := server(t, "/api/chat", func(w http.ResponseWriter, _ map[string]any) {
+			_ = json.NewEncoder(w).Encode(map[string]any{"message": map[string]any{"content": answer}, "done_reason": "stop"})
+		})
+		b, err := New(Config{BaseURL: srv.URL, Model: "m", ContextTokens: tt.configured})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := b.Analyze(context.Background(), input(t)); err != nil {
+			t.Fatalf("Analyze: %v", err)
+		}
+		opts, _ := (*got)["options"].(map[string]any)
+		if opts["num_ctx"] != float64(tt.want) {
+			t.Errorf("configured %d: num_ctx = %v, want %d", tt.configured, opts["num_ctx"], tt.want)
+		}
+	}
+}
+
+// Ollama answers from whatever part of the input fits its context window,
+// without an error. The reported prompt token count is the only sign, and a
+// verdict from part of the evidence must not pass for one from all of it.
+func TestTruncatedInputIsAnError(t *testing.T) {
+	in := input(t)
+	user, _ := reason.UserMessage(in)
+	full := (len(reason.SystemPrompt()) + len(user)) / 3
+
+	tests := []struct {
+		name   string
+		api    API
+		path   string
+		tokens int
+		want   error
+	}{
+		{"ollama, whole input", APIOllama, "/api/chat", full, nil},
+		{"ollama, truncated", APIOllama, "/api/chat", full / 3, ErrInputTruncated},
+		{"ollama, no count reported", APIOllama, "/api/chat", 0, nil},
+		{"openai, whole input", APIOpenAI, "/v1/chat/completions", full, nil},
+		{"openai, truncated", APIOpenAI, "/v1/chat/completions", full / 3, ErrInputTruncated},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv, _ := server(t, tt.path, func(w http.ResponseWriter, _ map[string]any) {
+				if tt.api == APIOpenAI {
+					_ = json.NewEncoder(w).Encode(map[string]any{
+						"choices": []any{map[string]any{"message": map[string]any{"content": answer}, "finish_reason": "stop"}},
+						"usage":   map[string]any{"prompt_tokens": tt.tokens},
+					})
+					return
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{"message": map[string]any{"content": answer}, "done_reason": "stop", "prompt_eval_count": tt.tokens})
+			})
+			b, err := New(Config{BaseURL: srv.URL, Model: "m", API: tt.api})
+			if err != nil {
+				t.Fatal(err)
+			}
+			v, err := b.Analyze(context.Background(), in)
+			if tt.want == nil {
+				if err != nil {
+					t.Fatalf("Analyze: %v", err)
+				}
+				return
+			}
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("err = %v, verdict = %+v; want %v", err, v, tt.want)
+			}
+		})
+	}
+}
+
 func TestNewValidates(t *testing.T) {
 	if _, err := New(Config{Model: "m"}); err == nil {
 		t.Error("missing base URL should be rejected")
+	}
+	if _, err := New(Config{BaseURL: "http://x", Model: "m", ContextTokens: -1}); err == nil {
+		t.Error("negative context window should be rejected")
 	}
 	if _, err := New(Config{BaseURL: "http://x", Model: "m", API: "grpc"}); err == nil {
 		t.Error("unknown API should be rejected")

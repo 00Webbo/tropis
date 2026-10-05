@@ -77,6 +77,8 @@ containers:
       {{- end }}
       - name: TROPIS_LOCAL_API
         value: {{ .root.Values.backend.localAPI | quote }}
+      - name: TROPIS_CONTEXT_TOKENS
+        value: {{ .root.Values.backend.contextTokens | quote }}
       {{- with .root.Values.backend.effort }}
       - name: TROPIS_EFFORT
         value: {{ . | quote }}
