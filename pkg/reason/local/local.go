@@ -62,6 +62,15 @@ type Config struct {
 	// to them.
 	ContextTokens int
 
+	// Think controls a thinking model's hidden reasoning, sent to Ollama as
+	// the top-level `think` field: "true", "false", or a level ("low",
+	// "medium", "high") for models that take one. Empty sends nothing, so
+	// the model's own default applies; many thinking models think by
+	// default, and their thinking counts against the context window. The
+	// openai protocol has no such field, so there it is the server's
+	// setting and this is not sent.
+	Think string
+
 	// Timeout bounds one request. Zero means five minutes: local models on
 	// modest hardware can be slow on a large input.
 	Timeout time.Duration
@@ -100,6 +109,9 @@ func New(cfg Config) (*Backend, error) {
 	if cfg.ContextTokens == 0 {
 		cfg.ContextTokens = DefaultContextTokens
 	}
+	if _, err := thinkValue(cfg.Think); err != nil {
+		return nil, err
+	}
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 5 * time.Minute
 	}
@@ -110,9 +122,31 @@ func New(cfg Config) (*Backend, error) {
 	return &Backend{cfg: cfg}, nil
 }
 
-// Describe identifies the backend.
+// Describe identifies the backend, including the thinking setting when one
+// is sent, since it changes the results.
 func (b *Backend) Describe() schema.BackendInfo {
-	return schema.BackendInfo{Provider: "local-" + string(b.cfg.API), Model: b.cfg.Model, PromptVersion: reason.PromptVersion}
+	info := schema.BackendInfo{Provider: "local-" + string(b.cfg.API), Model: b.cfg.Model, PromptVersion: reason.PromptVersion}
+	if b.cfg.API == APIOllama {
+		info.Think = b.cfg.Think
+	}
+	return info
+}
+
+// thinkValue returns the JSON value of Ollama's `think` field for a Think
+// setting: a boolean for true and false, the level string otherwise, and
+// nil for empty, meaning the field is not sent.
+func thinkValue(s string) (any, error) {
+	switch s {
+	case "":
+		return nil, nil
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	case "low", "medium", "high":
+		return s, nil
+	}
+	return nil, fmt.Errorf("local backend: unknown think setting %q (want true, false, low, medium or high, or empty for the model's default)", s)
 }
 
 type chatMessage struct {
@@ -180,6 +214,9 @@ func (b *Backend) ollama(ctx context.Context, messages []chatMessage) (string, i
 		"format":   reason.OutputSchema(),
 		// Deterministic decoding: the eval measures the model, not the dice.
 		"options": map[string]any{"temperature": 0, "num_ctx": b.cfg.ContextTokens},
+	}
+	if think, _ := thinkValue(b.cfg.Think); think != nil {
+		req["think"] = think
 	}
 	var resp struct {
 		Message struct {

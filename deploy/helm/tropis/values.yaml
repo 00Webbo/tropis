@@ -28,6 +28,13 @@ backend:
   # what does not fit; Tropis refuses a verdict from a truncated input.
   # For openai-compatible servers, set the window on the server.
   contextTokens: 16384
+  # For `local` with ollama: a thinking model's hidden reasoning. "true",
+  # "false", or a level ("low", "medium", "high") for models that take one.
+  # Empty leaves the model's default, and many think by default; thinking
+  # counts against `contextTokens`, so if verdicts fail as truncated at the
+  # length limit, set "false" or raise `contextTokens`.
+  # For openai-compatible servers, thinking is the server's setting.
+  localThink: ""
   # For `anthropic`: low, medium, high, xhigh or max. Empty is the API default.
   effort: ""
   # A Secret holding the API key, under `apiKeySecret.key`. Tropis never
