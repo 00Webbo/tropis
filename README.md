@@ -103,7 +103,9 @@ helm install tropis oci://ghcr.io/00webbo/charts/tropis -n tropis-system --creat
 `qwen3.5:9b` fits on a GPU with about 8 GB of memory at the default 16k
 context window (`backend.contextTokens`). It is a thinking model, and its
 thinking shares that window: if verdicts fail as truncated at the model's
-length limit, set `backend.localThink=false` or raise the context window.
+length limit, raise `backend.contextTokens`. `backend.localThink=false` is
+much faster, but on the synthetic dev corpus it made the model overconfident
+and more prone to false causal claims, so it is a speed trade-off, not a fix.
 
 To try it with no model at all, `--set backend.provider=mock --set sweep.all=true`
 uses a deterministic heuristic that analyses every node — a first verdict

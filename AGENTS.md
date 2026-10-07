@@ -73,9 +73,11 @@ test guards a rule, do not weaken the test to make a change pass.
   prompt token count cannot cover the input. If the prompt or the evidence
   grows, check the default still fits. Thinking models also spend that
   window on hidden reasoning and can end "truncated at the model's length
-  limit"; `TROPIS_LOCAL_THINK` (`--think`, chart `backend.localThink`)
-  controls it, and is recorded in `BackendInfo.Think` because it changes
-  results.
+  limit"; raise the window first. `TROPIS_LOCAL_THINK` (`--think`, chart
+  `backend.localThink`; ollama only, rejected with openai) can turn
+  thinking off, but on the dev corpus that made the model overconfident
+  and more prone to false causal claims. It is recorded in
+  `BackendInfo.Think` because it changes results.
 - **Injection scripts destroy data.** Only ever run them through
   `make inject-test` or on the capture rig. Never on a development machine.
 

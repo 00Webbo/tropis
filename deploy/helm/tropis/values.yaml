@@ -32,10 +32,12 @@ backend:
   contextTokens: 16384
   # For `local` with ollama: a thinking model's hidden reasoning. "true",
   # "false", or a level ("low", "medium", "high") for models that take one.
-  # Empty leaves the model's default, and many think by default; thinking
-  # counts against `contextTokens`, so if verdicts fail as truncated at the
-  # length limit, set "false" or raise `contextTokens`.
-  # For openai-compatible servers, thinking is the server's setting.
+  # Empty leaves the model's default, and many think by default. Thinking
+  # counts against `contextTokens`: if verdicts fail as truncated at the
+  # length limit, raise `contextTokens`. "false" is much faster but, in
+  # testing, made the model overconfident and more prone to false causal
+  # claims; treat it as a speed trade-off, not a fix.
+  # Must be empty with localAPI openai: there thinking is the server's setting.
   localThink: ""
   # For `anthropic`: low, medium, high, xhigh or max. Empty is the API default.
   effort: ""
