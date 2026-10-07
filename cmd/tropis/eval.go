@@ -48,6 +48,16 @@ func (b *backendFlags) config() (backend.Config, error) {
 	return cfg, nil
 }
 
+// withCaseTimeout makes the backend's own request timeout at least the
+// per-case timeout, so a longer --timeout is not silently cut short by the
+// backend's default. A timeout set explicitly (TROPIS_TIMEOUT) is kept.
+func withCaseTimeout(cfg backend.Config, perCase time.Duration) backend.Config {
+	if cfg.Timeout == 0 {
+		cfg.Timeout = perCase
+	}
+	return cfg
+}
+
 func init() {
 	commands["eval"] = command{"replay a fixture corpus and score the verdicts", runEval}
 }
@@ -62,16 +72,21 @@ func runEval(args []string, stdout, stderr io.Writer) int {
 	inv := fs.String("inventory", "", "rig inventory, to describe the rig in the results")
 	concurrency := fs.Int("concurrency", 4, "parallel analyses")
 	quiet := fs.Bool("quiet", false, "no per-case progress")
+	timeout := fs.Duration("timeout", runner.DefaultTimeout, "per-case analysis timeout; also the backend request timeout unless TROPIS_TIMEOUT sets one")
 	var bf backendFlags
 	bf.register(fs)
 	if err := fs.Parse(args); err != nil {
 		return exitUsage
+	}
+	if *timeout <= 0 {
+		return fail(stderr, "--timeout must be positive, got %s", *timeout)
 	}
 
 	cfg, err := bf.config()
 	if err != nil {
 		return fail(stderr, "%v", err)
 	}
+	cfg = withCaseTimeout(cfg, *timeout)
 	b, err := backend.New(cfg)
 	if err != nil {
 		return fail(stderr, "%v", err)
@@ -83,6 +98,7 @@ func runEval(args []string, stdout, stderr io.Writer) int {
 		Seed:               *seed,
 		RequirePublishable: *publishable,
 		Concurrency:        *concurrency,
+		Timeout:            *timeout,
 	}
 	if !*quiet {
 		rc.Progress = stderr
