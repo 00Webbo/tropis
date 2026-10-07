@@ -17,7 +17,9 @@ backend:
   # anthropic (default), local, or mock. `mock` is a deterministic heuristic
   # for trying Tropis out and for tests: it is not a reasoning engine.
   provider: anthropic
-  # Empty uses the backend's default (claude-opus-5 for anthropic).
+  # Empty uses the backend's default (claude-opus-5 for anthropic). `local`
+  # has no default; qwen3.5:9b is a good start, and fits an ~8 GB GPU at
+  # the default `contextTokens`.
   model: ""
   # Endpoint. Required for `local`, e.g. http://ollama.ollama:11434.
   baseURL: ""

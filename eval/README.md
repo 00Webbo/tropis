@@ -23,7 +23,18 @@ tropis eval --corpus eval/testdata --backend mock
 # Against the real corpus, with the default backend. --publishable refuses
 # to run if any fixture is synthetic.
 tropis eval --corpus eval/fixtures --publishable --inventory rig.yaml
+
+# Against a local model through Ollama. A small GPU can be slow, so allow
+# more than the default five minutes per case; --think false turns off a
+# thinking model's hidden reasoning, which otherwise shares the context
+# window with the verdict.
+tropis eval --corpus eval/fixtures --backend local --base-url http://localhost:11434 \
+  --model qwen3.5:9b --think false --timeout 10m --concurrency 1
 ```
+
+The backend settings that change results (model, prompt version, anthropic
+`--effort`, local `--think`) are recorded in `results.json` and shown in
+`report.md`; compare runs only when they match.
 
 Each run writes `results.json` (the record) and `report.md` (a view of it)
 under `eval/results/<timestamp>/`, which is not committed by default:

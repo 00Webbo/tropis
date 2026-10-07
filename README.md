@@ -97,8 +97,13 @@ To keep everything inside the cluster, point it at a local model instead:
 helm install tropis oci://ghcr.io/00webbo/charts/tropis -n tropis-system --create-namespace \
   --set backend.provider=local \
   --set backend.baseURL=http://ollama.ollama:11434 \
-  --set backend.model=qwen3:32b
+  --set backend.model=qwen3.5:9b
 ```
+
+`qwen3.5:9b` fits on a GPU with about 8 GB of memory at the default 16k
+context window (`backend.contextTokens`). It is a thinking model, and its
+thinking shares that window: if verdicts fail as truncated at the model's
+length limit, set `backend.localThink=false` or raise the context window.
 
 To try it with no model at all, `--set backend.provider=mock --set sweep.all=true`
 uses a deterministic heuristic that analyses every node — a first verdict
