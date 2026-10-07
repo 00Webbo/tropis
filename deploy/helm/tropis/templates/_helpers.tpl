@@ -79,6 +79,12 @@ containers:
         value: {{ .root.Values.backend.localAPI | quote }}
       - name: TROPIS_CONTEXT_TOKENS
         value: {{ .root.Values.backend.contextTokens | quote }}
+      {{- /* toString, not with: an unquoted `false` must still be sent. */}}
+      {{- $think := toString .root.Values.backend.localThink }}
+      {{- if and (ne $think "") (ne $think "<nil>") }}
+      - name: TROPIS_LOCAL_THINK
+        value: {{ $think | quote }}
+      {{- end }}
       {{- with .root.Values.backend.effort }}
       - name: TROPIS_EFFORT
         value: {{ . | quote }}

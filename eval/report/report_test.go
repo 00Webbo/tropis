@@ -45,4 +45,17 @@ func TestMarkdownOnDevCorpus(t *testing.T) {
 	if got := strings.Count(md, "| npd-"); got < 60 {
 		t.Errorf("report lists %d case rows, want 60", got)
 	}
+	if strings.Contains(md, "| Thinking |") || strings.Contains(md, "| Effort |") {
+		t.Error("report shows backend settings that were not set")
+	}
+
+	// Settings that change results are shown with the run.
+	res.Backend.Effort = "high"
+	res.Backend.Think = "false"
+	md = Markdown(res)
+	for _, want := range []string{"| Effort | high |", "| Thinking | false |"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("report is missing %q", want)
+		}
+	}
 }

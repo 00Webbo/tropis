@@ -83,7 +83,7 @@ func New(cfg Config) *Backend {
 // Describe identifies the configured model. A verdict records the model that
 // actually answered, which differs if a fallback served the request.
 func (b *Backend) Describe() schema.BackendInfo {
-	return schema.BackendInfo{Provider: "anthropic", Model: b.cfg.Model, PromptVersion: reason.PromptVersion}
+	return schema.BackendInfo{Provider: "anthropic", Model: b.cfg.Model, PromptVersion: reason.PromptVersion, Effort: b.cfg.Effort}
 }
 
 // Analyze asks Claude for a verdict.

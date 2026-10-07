@@ -215,4 +215,69 @@ func TestNewValidates(t *testing.T) {
 	if _, err := New(Config{BaseURL: "http://x", Model: "m", API: "grpc"}); err == nil {
 		t.Error("unknown API should be rejected")
 	}
+	for _, think := range []string{"yes", "True", "max", "1"} {
+		if _, err := New(Config{BaseURL: "http://x", Model: "m", Think: think}); err == nil {
+			t.Errorf("think %q should be rejected", think)
+		}
+	}
+}
+
+// A thinking setting is sent to Ollama only when configured, as a boolean
+// for true and false and as a string for a level, and is recorded with the
+// verdict because it changes the results.
+func TestOllamaThink(t *testing.T) {
+	for _, tt := range []struct {
+		configured string
+		want       any // nil: field absent
+	}{{"", nil}, {"true", true}, {"false", false}, {"low", "low"}, {"high", "high"}} {
+		srv, got := server(t, "/api/chat", func(w http.ResponseWriter, _ map[string]any) {
+			_ = json.NewEncoder(w).Encode(map[string]any{"message": map[string]any{"content": answer}, "done_reason": "stop"})
+		})
+		b, err := New(Config{BaseURL: srv.URL, Model: "m", Think: tt.configured})
+		if err != nil {
+			t.Fatal(err)
+		}
+		v, err := b.Analyze(context.Background(), input(t))
+		if err != nil {
+			t.Fatalf("Analyze: %v", err)
+		}
+		think, present := (*got)["think"]
+		if tt.want == nil {
+			if present {
+				t.Errorf("unset: think = %v, want it absent", think)
+			}
+		} else if think != tt.want {
+			t.Errorf("configured %q: think = %#v, want %#v", tt.configured, think, tt.want)
+		}
+		if v.Backend.Think != tt.configured {
+			t.Errorf("configured %q: recorded think = %q", tt.configured, v.Backend.Think)
+		}
+	}
+}
+
+// The OpenAI-compatible protocol has no thinking field: there it is the
+// server's setting. A think value would silently do nothing and go
+// unrecorded, so it is rejected, and none is ever sent.
+func TestOpenAIRejectsThink(t *testing.T) {
+	for _, think := range []string{"true", "false", "low"} {
+		if _, err := New(Config{BaseURL: "http://x", Model: "m", API: APIOpenAI, Think: think}); err == nil {
+			t.Errorf("think %q on the openai protocol should be rejected", think)
+		}
+	}
+
+	srv, got := server(t, "/v1/chat/completions", func(w http.ResponseWriter, _ map[string]any) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{
+			"message": map[string]any{"role": "assistant", "content": answer}, "finish_reason": "stop",
+		}}})
+	})
+	b, err := New(Config{BaseURL: srv.URL, Model: "m", API: APIOpenAI})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.Analyze(context.Background(), input(t)); err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if _, present := (*got)["think"]; present {
+		t.Error("think sent on the openai protocol")
+	}
 }

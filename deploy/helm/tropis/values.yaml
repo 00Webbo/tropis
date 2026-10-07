@@ -17,7 +17,9 @@ backend:
   # anthropic (default), local, or mock. `mock` is a deterministic heuristic
   # for trying Tropis out and for tests: it is not a reasoning engine.
   provider: anthropic
-  # Empty uses the backend's default (claude-opus-5 for anthropic).
+  # Empty uses the backend's default (claude-opus-5 for anthropic). `local`
+  # has no default; qwen3.5:9b is a good start, and fits an ~8 GB GPU at
+  # the default `contextTokens`.
   model: ""
   # Endpoint. Required for `local`, e.g. http://ollama.ollama:11434.
   baseURL: ""
@@ -28,6 +30,15 @@ backend:
   # what does not fit; Tropis refuses a verdict from a truncated input.
   # For openai-compatible servers, set the window on the server.
   contextTokens: 16384
+  # For `local` with ollama: a thinking model's hidden reasoning. "true",
+  # "false", or a level ("low", "medium", "high") for models that take one.
+  # Empty leaves the model's default, and many think by default. Thinking
+  # counts against `contextTokens`: if verdicts fail as truncated at the
+  # length limit, raise `contextTokens`. "false" is much faster but, in
+  # testing, made the model overconfident and more prone to false causal
+  # claims; treat it as a speed trade-off, not a fix.
+  # Must be empty with localAPI openai: there thinking is the server's setting.
+  localThink: ""
   # For `anthropic`: low, medium, high, xhigh or max. Empty is the API default.
   effort: ""
   # A Secret holding the API key, under `apiKeySecret.key`. Tropis never

@@ -42,6 +42,8 @@ var fieldDocs = map[string]map[string]string{
 		"Provider":      "Backend family, for example 'anthropic', 'ollama' or 'mock'.",
 		"Model":         "The specific model identifier.",
 		"PromptVersion": "Version of the prompt template used. Results are only comparable within a prompt version.",
+		"Effort":        "Reasoning effort level requested from the provider, when one was set. Empty means the provider's default.",
+		"Think":         "Thinking setting sent to a local model (true, false or a level), when one was set. Empty means the model's default.",
 	},
 }
 

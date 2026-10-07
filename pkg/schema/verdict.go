@@ -171,4 +171,13 @@ type BackendInfo struct {
 	// prompt changes the results, so eval numbers are only comparable within a
 	// prompt version.
 	PromptVersion string `json:"promptVersion"`
+
+	// Effort is the reasoning effort level requested from the provider
+	// (anthropic), when one was set. Empty means the provider's default.
+	Effort string `json:"effort,omitempty"`
+
+	// Think is the thinking setting sent to a local model (true, false or a
+	// level), when one was set. Empty means the model's default. Like the
+	// prompt, it changes the results.
+	Think string `json:"think,omitempty"`
 }

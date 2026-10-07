@@ -21,6 +21,7 @@ func TestNew(t *testing.T) {
 		{Config{Provider: Local, BaseURL: "http://vllm:8000", Model: "m", API: "openai"}, "local-openai", false},
 		{Config{Provider: Mock}, "mock", false},
 		{Config{Provider: Local}, "", true},
+		{Config{Provider: Local, BaseURL: "http://ollama:11434", Model: "m", Think: "maybe"}, "", true},
 		{Config{Provider: "gemini"}, "", true},
 	}
 	for _, tt := range tests {
@@ -58,11 +59,12 @@ func TestFromEnv(t *testing.T) {
 	t.Setenv("TROPIS_BASE_URL", "http://ollama:11434")
 	t.Setenv("TROPIS_TIMEOUT", "90s")
 	t.Setenv("TROPIS_ESCALATE_BELOW", "0.6")
+	t.Setenv("TROPIS_LOCAL_THINK", "false")
 	cfg, err := FromEnv()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Provider != "local" || cfg.Model != "qwen3:32b" || cfg.Timeout.Seconds() != 90 || cfg.EscalateBelow != 0.6 {
+	if cfg.Provider != "local" || cfg.Model != "qwen3:32b" || cfg.Timeout.Seconds() != 90 || cfg.EscalateBelow != 0.6 || cfg.Think != "false" {
 		t.Errorf("cfg = %+v", cfg)
 	}
 

@@ -20,7 +20,7 @@ import (
 // backendFlags configure a reasoning backend on top of TROPIS_* environment
 // variables; flags win.
 type backendFlags struct {
-	provider, model, baseURL, api, effort string
+	provider, model, baseURL, api, think, effort string
 }
 
 func (b *backendFlags) register(fs *flag.FlagSet) {
@@ -28,6 +28,7 @@ func (b *backendFlags) register(fs *flag.FlagSet) {
 	fs.StringVar(&b.model, "model", "", "model name (default from TROPIS_MODEL, else the backend's default)")
 	fs.StringVar(&b.baseURL, "base-url", "", "backend endpoint (default from TROPIS_BASE_URL)")
 	fs.StringVar(&b.api, "local-api", "", "local backend protocol: ollama or openai (default from TROPIS_LOCAL_API)")
+	fs.StringVar(&b.think, "think", "", "local (ollama) thinking: true, false, low, medium or high; empty is the model's default (default from TROPIS_LOCAL_THINK)")
 	fs.StringVar(&b.effort, "effort", "", "anthropic effort level (default from TROPIS_EFFORT)")
 }
 
@@ -38,13 +39,23 @@ func (b *backendFlags) config() (backend.Config, error) {
 	}
 	for dst, src := range map[*string]string{
 		&cfg.Provider: b.provider, &cfg.Model: b.model, &cfg.BaseURL: b.baseURL,
-		&cfg.API: b.api, &cfg.Effort: b.effort,
+		&cfg.API: b.api, &cfg.Think: b.think, &cfg.Effort: b.effort,
 	} {
 		if src != "" {
 			*dst = src
 		}
 	}
 	return cfg, nil
+}
+
+// withCaseTimeout makes the backend's own request timeout at least the
+// per-case timeout, so a longer --timeout is not silently cut short by the
+// backend's default. A timeout set explicitly (TROPIS_TIMEOUT) is kept.
+func withCaseTimeout(cfg backend.Config, perCase time.Duration) backend.Config {
+	if cfg.Timeout == 0 {
+		cfg.Timeout = perCase
+	}
+	return cfg
 }
 
 func init() {
@@ -61,16 +72,21 @@ func runEval(args []string, stdout, stderr io.Writer) int {
 	inv := fs.String("inventory", "", "rig inventory, to describe the rig in the results")
 	concurrency := fs.Int("concurrency", 4, "parallel analyses")
 	quiet := fs.Bool("quiet", false, "no per-case progress")
+	timeout := fs.Duration("timeout", runner.DefaultTimeout, "per-case analysis timeout; also the backend request timeout unless TROPIS_TIMEOUT sets one")
 	var bf backendFlags
 	bf.register(fs)
 	if err := fs.Parse(args); err != nil {
 		return exitUsage
+	}
+	if *timeout <= 0 {
+		return fail(stderr, "--timeout must be positive, got %s", *timeout)
 	}
 
 	cfg, err := bf.config()
 	if err != nil {
 		return fail(stderr, "%v", err)
 	}
+	cfg = withCaseTimeout(cfg, *timeout)
 	b, err := backend.New(cfg)
 	if err != nil {
 		return fail(stderr, "%v", err)
@@ -82,6 +98,7 @@ func runEval(args []string, stdout, stderr io.Writer) int {
 		Seed:               *seed,
 		RequirePublishable: *publishable,
 		Concurrency:        *concurrency,
+		Timeout:            *timeout,
 	}
 	if !*quiet {
 		rc.Progress = stderr
