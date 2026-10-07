@@ -2,8 +2,8 @@ apiVersion: v2
 name: tropis
 description: Read-only diagnostic agent for bare-metal Kubernetes that correlates host-layer disk health with pod failures.
 type: application
-version: 0.1.1 # x-release-please-version
-appVersion: "0.1.1" # x-release-please-version
+version: 0.2.0 # x-release-please-version
+appVersion: "0.2.0" # x-release-please-version
 home: https://tropis.io
 sources:
   - https://github.com/00Webbo/tropis
