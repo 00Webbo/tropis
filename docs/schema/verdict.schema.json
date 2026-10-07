@@ -29,6 +29,10 @@
       "additionalProperties": false,
       "description": "Which model produced this verdict, and under which prompt version.",
       "properties": {
+        "effort": {
+          "description": "Reasoning effort level requested from the provider, when one was set. Empty means the provider's default.",
+          "type": "string"
+        },
         "model": {
           "description": "The specific model identifier.",
           "type": "string"
@@ -39,6 +43,10 @@
         },
         "provider": {
           "description": "Backend family, for example 'anthropic', 'ollama' or 'mock'.",
+          "type": "string"
+        },
+        "think": {
+          "description": "Thinking setting sent to a local model (true, false or a level), when one was set. Empty means the model's default.",
           "type": "string"
         }
       },

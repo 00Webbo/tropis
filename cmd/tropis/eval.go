@@ -20,7 +20,7 @@ import (
 // backendFlags configure a reasoning backend on top of TROPIS_* environment
 // variables; flags win.
 type backendFlags struct {
-	provider, model, baseURL, api, effort string
+	provider, model, baseURL, api, think, effort string
 }
 
 func (b *backendFlags) register(fs *flag.FlagSet) {
@@ -28,6 +28,7 @@ func (b *backendFlags) register(fs *flag.FlagSet) {
 	fs.StringVar(&b.model, "model", "", "model name (default from TROPIS_MODEL, else the backend's default)")
 	fs.StringVar(&b.baseURL, "base-url", "", "backend endpoint (default from TROPIS_BASE_URL)")
 	fs.StringVar(&b.api, "local-api", "", "local backend protocol: ollama or openai (default from TROPIS_LOCAL_API)")
+	fs.StringVar(&b.think, "think", "", "local (ollama) thinking: true, false, low, medium or high; empty is the model's default (default from TROPIS_LOCAL_THINK)")
 	fs.StringVar(&b.effort, "effort", "", "anthropic effort level (default from TROPIS_EFFORT)")
 }
 
@@ -38,7 +39,7 @@ func (b *backendFlags) config() (backend.Config, error) {
 	}
 	for dst, src := range map[*string]string{
 		&cfg.Provider: b.provider, &cfg.Model: b.model, &cfg.BaseURL: b.baseURL,
-		&cfg.API: b.api, &cfg.Effort: b.effort,
+		&cfg.API: b.api, &cfg.Think: b.think, &cfg.Effort: b.effort,
 	} {
 		if src != "" {
 			*dst = src

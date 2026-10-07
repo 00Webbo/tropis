@@ -61,6 +61,34 @@ func TestVerdictRoundTrip(t *testing.T) {
 	}
 }
 
+// Backend settings that change results must survive a round trip, and must
+// not appear at all when unset, so verdicts from before they existed and
+// verdicts that set none serialise identically.
+func TestBackendSettingsRoundTrip(t *testing.T) {
+	v := validVerdict()
+	data, err := json.Marshal(v.Backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "effort") || strings.Contains(string(data), "think") {
+		t.Errorf("unset settings serialised: %s", data)
+	}
+
+	v.Backend.Effort = "high"
+	v.Backend.Think = "false"
+	data, err = json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got Verdict
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Backend != v.Backend {
+		t.Errorf("backend = %+v, want %+v", got.Backend, v.Backend)
+	}
+}
+
 // A nil RootCause must not serialise as a JSON null, since the CRD status and
 // the --json output are the same bytes and consumers will index into it.
 func TestVerdictOmitsNilRootCause(t *testing.T) {

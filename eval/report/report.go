@@ -35,6 +35,12 @@ func Markdown(r *runner.Results) string {
 	w("| | |\n|---|---|\n")
 	w("| Run | %s |\n", r.StartedAt.Format("2006-01-02 15:04 MST"))
 	w("| Backend | %s / %s |\n", r.Backend.Provider, r.Backend.Model)
+	if r.Backend.Effort != "" {
+		w("| Effort | %s |\n", r.Backend.Effort)
+	}
+	if r.Backend.Think != "" {
+		w("| Thinking | %s |\n", r.Backend.Think)
+	}
 	w("| Prompt | %s |\n", r.Backend.PromptVersion)
 	w("| Agent | %s |\n", r.AgentVersion)
 	w("| Corpus | `%s` (%d fixtures) |\n", r.Corpus, len(r.Cases))

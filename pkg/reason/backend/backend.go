@@ -43,6 +43,10 @@ type Config struct {
 	// backend default.
 	ContextTokens int
 
+	// Think is the local (ollama) thinking setting: true, false, low, medium
+	// or high. Empty leaves the model's default.
+	Think string
+
 	// APIKey authenticates. For anthropic, empty defers to the SDK's own
 	// credential resolution.
 	APIKey string
@@ -101,6 +105,7 @@ func single(cfg Config, model string) (reason.Backend, error) {
 			API:           local.API(cfg.API),
 			APIKey:        cfg.APIKey,
 			ContextTokens: cfg.ContextTokens,
+			Think:         cfg.Think,
 			Timeout:       cfg.Timeout,
 		})
 	case Mock:
@@ -117,6 +122,7 @@ func single(cfg Config, model string) (reason.Backend, error) {
 //	TROPIS_BASE_URL            endpoint
 //	TROPIS_LOCAL_API           ollama | openai
 //	TROPIS_CONTEXT_TOKENS      ollama context window, e.g. 16384
+//	TROPIS_LOCAL_THINK         ollama thinking: true, false, low, medium or high
 //	TROPIS_API_KEY             API key (anthropic also honours ANTHROPIC_API_KEY)
 //	TROPIS_EFFORT              anthropic effort level
 //	TROPIS_TIMEOUT             request timeout, e.g. 2m
@@ -129,6 +135,7 @@ func FromEnv() (Config, error) {
 		Model:           os.Getenv("TROPIS_MODEL"),
 		BaseURL:         os.Getenv("TROPIS_BASE_URL"),
 		API:             os.Getenv("TROPIS_LOCAL_API"),
+		Think:           os.Getenv("TROPIS_LOCAL_THINK"),
 		APIKey:          os.Getenv("TROPIS_API_KEY"),
 		Effort:          os.Getenv("TROPIS_EFFORT"),
 		EscalationModel: os.Getenv("TROPIS_ESCALATION_MODEL"),
