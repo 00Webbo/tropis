@@ -38,6 +38,9 @@ const ResultsVersion = "tropis.io/eval-results/v1alpha1"
 // tests substitute a spy to verify when labels are read.
 type LabelSource func(fixture.Case) (*schema.Label, error)
 
+// DefaultTimeout bounds one analysis when Config.Timeout is zero.
+const DefaultTimeout = 5 * time.Minute
+
 // Config configures a run.
 type Config struct {
 	// Corpus is the fixture directory.
@@ -60,7 +63,7 @@ type Config struct {
 	// Concurrency bounds parallel analyses. Zero means 4.
 	Concurrency int
 
-	// Timeout bounds one analysis. Zero means five minutes.
+	// Timeout bounds one analysis. Zero means DefaultTimeout.
 	Timeout time.Duration
 
 	// Inventory, when set, describes the rig in the results.
@@ -261,7 +264,7 @@ func analyse(ctx context.Context, cfg Config, cases []fixture.Case, th prefilter
 	}
 	timeout := cfg.Timeout
 	if timeout <= 0 {
-		timeout = 5 * time.Minute
+		timeout = DefaultTimeout
 	}
 
 	out := make([]CaseResult, len(cases))
