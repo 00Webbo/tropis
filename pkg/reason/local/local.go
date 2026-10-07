@@ -68,7 +68,7 @@ type Config struct {
 	// the model's own default applies; many thinking models think by
 	// default, and their thinking counts against the context window. The
 	// openai protocol has no such field, so there it is the server's
-	// setting and this is not sent.
+	// setting, and New rejects a Think value.
 	Think string
 
 	// Timeout bounds one request. Zero means five minutes: local models on
@@ -112,6 +112,10 @@ func New(cfg Config) (*Backend, error) {
 	if _, err := thinkValue(cfg.Think); err != nil {
 		return nil, err
 	}
+	if cfg.Think != "" && cfg.API != APIOllama {
+		// A setting that silently does nothing would also go unrecorded.
+		return nil, fmt.Errorf("local backend: think is supported only on the %q protocol; on %q, thinking is the server's setting", APIOllama, cfg.API)
+	}
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 5 * time.Minute
 	}
@@ -125,11 +129,7 @@ func New(cfg Config) (*Backend, error) {
 // Describe identifies the backend, including the thinking setting when one
 // is sent, since it changes the results.
 func (b *Backend) Describe() schema.BackendInfo {
-	info := schema.BackendInfo{Provider: "local-" + string(b.cfg.API), Model: b.cfg.Model, PromptVersion: reason.PromptVersion}
-	if b.cfg.API == APIOllama {
-		info.Think = b.cfg.Think
-	}
-	return info
+	return schema.BackendInfo{Provider: "local-" + string(b.cfg.API), Model: b.cfg.Model, PromptVersion: reason.PromptVersion, Think: b.cfg.Think}
 }
 
 // thinkValue returns the JSON value of Ollama's `think` field for a Think
