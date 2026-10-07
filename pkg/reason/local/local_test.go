@@ -256,25 +256,28 @@ func TestOllamaThink(t *testing.T) {
 }
 
 // The OpenAI-compatible protocol has no thinking field: there it is the
-// server's setting, so it is neither sent nor recorded.
-func TestOpenAINeverSendsThink(t *testing.T) {
+// server's setting. A think value would silently do nothing and go
+// unrecorded, so it is rejected, and none is ever sent.
+func TestOpenAIRejectsThink(t *testing.T) {
+	for _, think := range []string{"true", "false", "low"} {
+		if _, err := New(Config{BaseURL: "http://x", Model: "m", API: APIOpenAI, Think: think}); err == nil {
+			t.Errorf("think %q on the openai protocol should be rejected", think)
+		}
+	}
+
 	srv, got := server(t, "/v1/chat/completions", func(w http.ResponseWriter, _ map[string]any) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{
 			"message": map[string]any{"role": "assistant", "content": answer}, "finish_reason": "stop",
 		}}})
 	})
-	b, err := New(Config{BaseURL: srv.URL, Model: "m", API: APIOpenAI, Think: "false"})
+	b, err := New(Config{BaseURL: srv.URL, Model: "m", API: APIOpenAI})
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := b.Analyze(context.Background(), input(t))
-	if err != nil {
+	if _, err := b.Analyze(context.Background(), input(t)); err != nil {
 		t.Fatalf("Analyze: %v", err)
 	}
 	if _, present := (*got)["think"]; present {
 		t.Error("think sent on the openai protocol")
-	}
-	if v.Backend.Think != "" {
-		t.Errorf("recorded think = %q for a setting that was not sent", v.Backend.Think)
 	}
 }
