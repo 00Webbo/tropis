@@ -22,7 +22,7 @@ RUN CGO_ENABLED=0 go build -trimpath \
     CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" \
       -o /out/tropis-collector ./cmd/tropis-collector
 
-FROM alpine:3.20
+FROM alpine:3.24
 RUN apk add --no-cache smartmontools
 COPY --from=build /out/tropis /out/tropis-collector /usr/local/bin/
 # The analyser runs as this user. The collector overrides it: reading SMART

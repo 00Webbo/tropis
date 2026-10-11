@@ -103,7 +103,7 @@ kind-e2e: ## Install on a fresh kind cluster and require a verdict (docker, kind
 .PHONY: smart-samples
 smart-samples: ## Regenerate the captured smartctl samples (docker, privileged)
 	MSYS_NO_PATHCONV=1 docker run --rm --privileged -v /dev:/dev -v /lib/modules:/lib/modules:ro \
-		-v "$(CURDIR):/repo" alpine:3.20 sh /repo/hack/capture-smart-samples.sh
+		-v "$(CURDIR):/repo" alpine:3.24 sh /repo/hack/capture-smart-samples.sh
 
 ##@ Evaluation
 

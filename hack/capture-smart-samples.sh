@@ -6,7 +6,7 @@
 # container:
 #
 #   docker run --rm --privileged -v /dev:/dev -v /lib/modules:/lib/modules:ro \
-#     -v "$PWD:/repo" alpine:3.20 sh /repo/hack/capture-smart-samples.sh
+#     -v "$PWD:/repo" alpine:3.24 sh /repo/hack/capture-smart-samples.sh
 #
 # The NVMe sample is produced against a real NVMe controller created with the
 # kernel's nvme-loop target, so smartctl exercises its genuine NVMe code path
