@@ -36,7 +36,9 @@ injection, wait, capture, then stop. See hack/inject/README.md.
 For a real-sata scenario it refuses unless one of the scenario's expectSmart
 counters is higher on the injected drive (found by the serial in the
 injection record) than in the collector's earlier reading: restart the
-collector before injecting so that reading is pre-fault.
+collector before injecting so that reading is pre-fault. For a scarred-sata
+scenario it refuses unless the --disk drive's reallocated count is above zero
+and unchanged since that reading, and its pending count is 0 in both.
 `
 
 func runCapture(args []string, stdout, stderr io.Writer) int {

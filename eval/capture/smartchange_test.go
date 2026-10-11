@@ -131,6 +131,82 @@ func TestCheckSMARTChange(t *testing.T) {
 	}
 }
 
+func TestCheckStableDefects(t *testing.T) {
+	other := "WD-OTHER0001"
+	type readings map[string]schema.RawJSON
+	tests := []struct {
+		name    string
+		device  string
+		before  readings // nil means no earlier reading at all
+		after   readings
+		refused string // "" means the check passes
+	}{
+		{"non-zero and stable", "/dev/sdb",
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 0, 0)},
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 0, 0)}, ""},
+		{"pending stable but non-zero", "/dev/sdb",
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 2, 0)},
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 2, 0)}, "pending_sectors 2 -> 2"},
+		{"pending cleared", "/dev/sdb",
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 2, 0)},
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 0, 0)}, "pending_sectors 2 -> 0"},
+		{"matched by serial when the path changes", "/dev/sdc",
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 0, 0)},
+			readings{"/dev/sdc": reading(t, sampleSerial, 8, 0, 0)}, ""},
+		{"clean drive", "/dev/sdb",
+			readings{"/dev/sdb": reading(t, sampleSerial, 0, 0, 0)},
+			readings{"/dev/sdb": reading(t, sampleSerial, 0, 0, 0)}, "reallocated_sectors 0 -> 0"},
+		{"reallocated grew", "/dev/sdb",
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 0, 0)},
+			readings{"/dev/sdb": reading(t, sampleSerial, 12, 0, 0)}, "reallocated_sectors 8 -> 12"},
+		{"reallocated appeared", "/dev/sdb",
+			readings{"/dev/sdb": reading(t, sampleSerial, 0, 0, 0)},
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 0, 0)}, "reallocated_sectors 0 -> 8"},
+		{"pending grew", "/dev/sdb",
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 0, 0)},
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 3, 0)}, "pending_sectors 0 -> 3"},
+		{"no drive named", "",
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 0, 0)},
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 0, 0)}, "--disk"},
+		{"drive missing from the capture", "/dev/sdb",
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 0, 0)},
+			readings{"/dev/sdc": reading(t, sampleSerial, 8, 0, 0)}, "no SMART reading of it"},
+		{"drive missing from the earlier reading", "/dev/sdb",
+			readings{"/dev/sdb": reading(t, other, 8, 0, 0)},
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 0, 0)}, "does not include that drive"},
+		{"no earlier reading", "/dev/sdb",
+			nil,
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 0, 0)}, "no earlier reading"},
+		{"two devices with the drive's serial", "/dev/sdb",
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 0, 0)},
+			readings{"/dev/sdb": reading(t, sampleSerial, 8, 0, 0), "/dev/sdc": reading(t, sampleSerial, 8, 0, 0)}, "two devices"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hc := &schema.HostCapture{SMART: tt.after, CollectedAt: at}
+			if tt.before != nil {
+				hc.Previous = &schema.HostSnapshot{SMART: tt.before, CollectedAt: at.Add(-24 * time.Hour)}
+			}
+			err := CheckStableDefects("some-scenario", tt.device, hc)
+			if tt.refused == "" {
+				if err != nil {
+					t.Fatalf("expected the check to pass: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("expected the capture to be refused")
+			}
+			if !errors.Is(err, ErrRefused) {
+				t.Errorf("not a refusal: %v", err)
+			}
+			if !strings.Contains(err.Error(), tt.refused) || !strings.Contains(err.Error(), "some-scenario") {
+				t.Errorf("error %q should name the scenario and mention %q", err, tt.refused)
+			}
+		})
+	}
+}
+
 func TestSerialFromRecord(t *testing.T) {
 	rec := func(params map[string]string) *InjectionRecord {
 		return &InjectionRecord{Injection: &schema.Injection{Params: params}}
@@ -154,15 +230,12 @@ func TestSerialFromRecord(t *testing.T) {
 }
 
 // Through Capture: a real-sata scenario whose drive did not react writes
-// nothing, and a scenario without a SMART expectation is not checked.
+// nothing, a stable-defect scenario needs counters that held still, and a
+// scenario with neither is not checked.
 func TestCaptureChecksSMARTChange(t *testing.T) {
-	unchanged := reading(t, sampleSerial, 1544, 168, 96)
-	still := Sources{
-		Host: fakeHost{cur: map[string]schema.RawJSON{"/dev/sdb": unchanged}, prev: map[string]schema.RawJSON{"/dev/sdb": unchanged}},
-		K8s:  fakeK8s{}, Now: func() time.Time { return at },
-	}
+	still := scarred(t)
 	noHistory := Sources{
-		Host: fakeHost{cur: map[string]schema.RawJSON{"/dev/sdb": unchanged}},
+		Host: fakeHost{cur: map[string]schema.RawJSON{"/dev/sdb": reading(t, sampleSerial, 1544, 168, 96)}},
 		K8s:  fakeK8s{}, Now: func() time.Time { return at },
 	}
 	noSerial := record("disk.pending_sectors", "real", false)
@@ -183,7 +256,11 @@ func TestCaptureChecksSMARTChange(t *testing.T) {
 			"reallocated_sectors 1544 -> 1544"},
 		{"record without the drive's serial", sources(t, false), "pending-sectors-postgres", noSerial, "serial"},
 		{"no SMART expectation, no history", noHistory, "read-errors-postgres", record("disk.read_errors", "none", false), ""},
-		{"no injection at all", still, "stable-defects-config-crash", nil, ""},
+		{"stable defects, no injection", still, "stable-defects-config-crash", nil, ""},
+		{"stable defects under an injected fault", still, "read-errors-with-stable-defects", record("disk.read_errors", "none", false), ""},
+		{"stable defects that grew", sources(t, false), "stable-defects-oom", nil,
+			"stable-defects-oom needs stable defects on drive Z4Z1KQPL (/dev/sdb)"},
+		{"stable defects with no history", noHistory, "stable-defects-oom", nil, "no earlier reading"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

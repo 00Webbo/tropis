@@ -140,3 +140,66 @@ func show(v *uint64) string {
 func orList(c []string) string {
 	return strings.Join(c, " or ")
 }
+
+// CheckStableDefects verifies that a scenario declaring hardware
+// scarred-sata was captured on a drive with old, stable defects: reallocated
+// sectors above zero in both the capture's reading and the collector's
+// earlier one, unchanged between them, and no pending sectors in either. A
+// clean drive, or one whose defects are still developing, would make the
+// label's "the defects are not moving" untrue of the evidence; pending
+// sectors mean the drive is actively failing, and the disk could then be
+// the cause.
+//
+// These scenarios inject nothing on the drive, so there is no injection
+// record to name it. The drive is the one at the inventory disk's device
+// (--disk) in the capture's reading; from there it is followed by serial, as
+// CheckSMARTChange does, in case the earlier reading had it at another path.
+func CheckStableDefects(scenarioID, device string, host *schema.HostCapture) error {
+	if device == "" {
+		return refuse("scenario %s needs the scarred drive; name it with --disk", scenarioID)
+	}
+	if host == nil {
+		return refuse("scenario %s: no host capture to check %s against", scenarioID, device)
+	}
+	raw, ok := host.SMART[device]
+	if !ok {
+		return refuse("scenario %s needs stable defects on %s, but the capture has no SMART reading of it", scenarioID, device)
+	}
+	d, fail := smart.Parse(raw, device)
+	if fail != nil {
+		return refuse("scenario %s needs stable defects on %s, but its SMART reading is unusable: %v", scenarioID, device, fail)
+	}
+	serial := strings.TrimSpace(d.SerialNumber)
+	if serial == "" {
+		return refuse("scenario %s: the SMART reading of %s has no serial number", scenarioID, device)
+	}
+	drive := fmt.Sprintf("drive %s (%s)", serial, device)
+	if _, _, err := findSerial(host.SMART, serial); err != nil {
+		return refuse("scenario %s: the capture's SMART reading %v", scenarioID, err)
+	}
+	if host.Previous == nil {
+		return refuse("scenario %s needs stable defects on %s, but the capture has no earlier reading to compare with; "+
+			"leave the collector running for 24 h before capturing", scenarioID, drive)
+	}
+	_, before, err := findSerial(host.Previous.SMART, serial)
+	if err != nil {
+		return refuse("scenario %s: the earlier SMART reading %v", scenarioID, err)
+	}
+	if before == nil {
+		return refuse("scenario %s needs stable defects on %s, but the earlier reading (%s) does not include that drive",
+			scenarioID, drive, host.Previous.CollectedAt.UTC().Format("2006-01-02T15:04:05Z"))
+	}
+
+	rb, ra := before.ReallocatedSectors, d.ReallocatedSectors
+	pb, pa := before.PendingSectors, d.PendingSectors
+	stable := rb != nil && ra != nil && *rb > 0 && *ra == *rb &&
+		pb != nil && pa != nil && *pb == 0 && *pa == 0
+	if !stable {
+		return refuse("scenario %s needs stable defects on %s (reallocated above zero and unchanged, pending 0), "+
+			"but between %s and %s SMART showed %s %s -> %s, %s %s -> %s",
+			scenarioID, drive,
+			host.Previous.CollectedAt.UTC().Format("2006-01-02T15:04:05Z"), host.CollectedAt.UTC().Format("2006-01-02T15:04:05Z"),
+			scenarios.CounterReallocated, show(rb), show(ra), scenarios.CounterPending, show(pb), show(pa))
+	}
+	return nil
+}

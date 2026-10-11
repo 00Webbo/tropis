@@ -51,8 +51,12 @@ type Scenario struct {
 	// Expected is the ground truth.
 	Expected Expected `json:"expected"`
 
-	// Hardware lists requirements the rig must meet, such as "real-sata" for
-	// scenarios whose SMART changes only real hardware can produce.
+	// Hardware lists requirements the rig must meet: "real-sata" for
+	// scenarios whose SMART changes only real hardware can produce, and
+	// "scarred-sata" for scenarios that need a drive with old, stable
+	// reallocated sectors. Capture refuses a scarred-sata fixture unless the
+	// drive's reallocated count is above zero and unchanged since the
+	// collector's earlier reading, and pending is 0 in both.
 	Hardware []string `json:"hardware,omitempty"`
 
 	// ExpectSMART names the SMART counters the injected fault is expected to
@@ -99,6 +103,10 @@ var (
 		"config-crash", "oom", "runtime-down", "silent-137", "healthy",
 	}
 	NPDArchetypes = []string{"", "readonly-fs", "containerd-restart", "none-firing"}
+
+	// HardwareKinds are the values a scenario can list in hardware. A typo
+	// would silently skip the check capture makes for the real one.
+	HardwareKinds = []string{"real-sata", "scarred-sata"}
 
 	// SMARTCounters are the counters a scenario can name in expectSmart.
 	SMARTCounters = []string{CounterPending, CounterReallocated, CounterUncorrectable}
@@ -189,6 +197,16 @@ func Validate(all []Scenario) error {
 			add("%s: expectSmart needs hardware: [real-sata]; nothing else changes SMART", where)
 		case len(s.ExpectSMART) > 0 && s.Inject == nil:
 			add("%s: expectSmart needs an injected fault", where)
+		}
+		// A scarred drive's counters must hold still; a real-sata fault
+		// exists to move them.
+		if realSATA && in("scarred-sata", s.Hardware) {
+			add("%s: hardware real-sata and scarred-sata contradict each other", where)
+		}
+		for _, h := range s.Hardware {
+			if !in(h, HardwareKinds) {
+				add("%s: hardware %q is not one of %v", where, h, HardwareKinds)
+			}
 		}
 		for _, c := range s.ExpectSMART {
 			if !in(c, SMARTCounters) {

@@ -16,6 +16,11 @@
 #     measure how Tropis does when the host signal it reads (v1: SMART only)
 #     has nothing to say.
 #
+# Stable-defect scenarios (hardware: [scarred-sata]) need a drive that already
+# carries old reallocated sectors, which no script can make. Capture refuses
+# one unless the drive's reallocated count is above zero and unchanged since
+# the collector's earlier reading, and pending is 0 in both.
+#
 # `synthetic` hints are used only to generate the development corpus under
 # eval/testdata. They are never used on the rig.
 scenarios:
@@ -141,6 +146,7 @@ scenarios:
     faultType: disk.read_errors
     inject: {script: read-errors.sh}
     workload: log-writer-hostpath
+    hardware: [scarred-sata]
     expected: {relationship: causal, rootCauseLayer: host}
     synthetic: {smart: realloc-stable, workload: io-error-crashloop}
 
@@ -279,6 +285,7 @@ scenarios:
       pending. A web pod crash-loops on a missing environment variable and uses
       only configMap volumes. Both are real; they are unrelated.
     workload: config-crash
+    hardware: [scarred-sata]
     expected: {relationship: coincidental}
     synthetic: {smart: realloc-stable, workload: config-crash}
 
@@ -287,6 +294,7 @@ scenarios:
       Stable reallocated sectors on the disk; a pod is OOMKilled under a tight
       memory limit. Unrelated.
     workload: memory-hog
+    hardware: [scarred-sata]
     expected: {relationship: coincidental}
     synthetic: {smart: realloc-stable, workload: oom}
 
@@ -311,6 +319,7 @@ scenarios:
     faultType: runtime.containerd_kill
     inject: {script: containerd-kill.sh, params: {KILLS: "5", INTERVAL: "60"}}
     workload: config-crash
+    hardware: [scarred-sata]
     expected: {relationship: coincidental}
     synthetic: {smart: realloc-stable, workload: runtime-down, npd: containerd-restart}
 
@@ -331,6 +340,7 @@ scenarios:
       The storage path exists, which tempts a causal answer, but the
       termination reason is memory and the defect count is not moving.
     workload: memory-hog
+    hardware: [scarred-sata]
     expected: {relationship: coincidental}
     synthetic: {smart: realloc-stable, workload: oom}
 

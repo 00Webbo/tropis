@@ -83,7 +83,8 @@ Capture-worker rules:
   drive left plugged in would appear in every fixture. Swap drives with the
   node powered off.
 - No NVMe test drive: no scenario needs one (`hardware` is only ever
-  `real-sata`), and NVMe has no portable way to move SMART counters.
+  `real-sata` or `scarred-sata`), and NVMe has no portable way to move SMART
+  counters.
 
 ### Test drives
 
@@ -184,7 +185,7 @@ All scenarios run on `worker-02`; `TROPIS_DISK` is the drive's inventory id.
 | 7 | degradation-fsync | causal/host | D, `real-sata` | `degradation.sh` STEP=8 INTERVAL=120 | |
 | 8 | degradation-slow-probes | causal/host | D, `real-sata` | `degradation.sh` STEP=4 INTERVAL=300 | |
 | 9 | read-errors-postgres | causal/host | C, dm | `read-errors.sh` (dm-dust) | BAD_BLOCKS under postgres data |
-| 10 | read-errors-with-stable-defects | causal/host | **S**, dm | `read-errors.sh` + natural stable defects | |
+| 10 | read-errors-with-stable-defects | causal/host | **S**, `scarred-sata`, dm | `read-errors.sh` + natural stable defects | |
 | 11 | write-errors-postgres | causal/host | C, dm | `write-errors.sh` (dm-flakey) | |
 | 12 | write-errors-intermittent-uploads | causal/host | C, dm | `write-errors.sh` UP_SECS=25 DOWN_SECS=5 | |
 | 13 | write-errors-readonly-remount | causal/host | C, dm | `write-errors.sh` | ext4 needs `errors=remount-ro` |
@@ -195,12 +196,12 @@ All scenarios run on `worker-02`; `TROPIS_DISK` is the drive's inventory id.
 | 18 | read-errors-batch | causal/host | C, dm | `read-errors.sh` | BAD_BLOCKS under `batch/dataset` |
 | 19 | exhaustion-log-spam | causal/k8s | C (idle) | `ephemeral-exhaustion.sh`, then the `log-spam` workload | container exceeds its ephemeral-storage limit and is evicted; see 4.7 |
 | 20 | exhaustion-emptydir | causal/k8s | C (idle) | `ephemeral-exhaustion.sh`, then the `emptydir-filler` workload | emptyDir exceeds its `sizeLimit` and the pod is evicted; see 4.7 |
-| 21 | stable-defects-config-crash | coincidental | **S** | natural defects; no injection | collector up ≥ 24 h on S |
-| 22 | stable-defects-oom | coincidental | **S** | natural defects | |
+| 21 | stable-defects-config-crash | coincidental | **S**, `scarred-sata` | natural defects; no injection | collector up ≥ 24 h on S |
+| 22 | stable-defects-oom | coincidental | **S**, `scarred-sata` | natural defects | |
 | 23 | pending-sectors-unrelated-oom | coincidental | C, `real-sata` | `pending-sectors.sh` | default (mid-disk) LBAs, away from workload data |
-| 24 | containerd-kill-stable-defects | coincidental | **S** | `containerd-kill.sh` KILLS=5 INTERVAL=60 + natural defects | confirm is `<node>/containerd` |
+| 24 | containerd-kill-stable-defects | coincidental | **S**, `scarred-sata` | `containerd-kill.sh` KILLS=5 INTERVAL=60 + natural defects | confirm is `<node>/containerd` |
 | 25 | read-errors-unused-region-config-crash | coincidental | C, dm | `read-errors.sh`, default mid-disk blocks | check no workload file sits there |
-| 26 | stable-defects-healthy-hostpath-oom | coincidental | **S** | natural defects | |
+| 26 | stable-defects-healthy-hostpath-oom | coincidental | **S**, `scarred-sata` | natural defects | |
 | 27 | pending-no-symptoms | insufficient | C, `real-sata` | `pending-sectors.sh` | `idle` workload |
 | 28 | unreadable-smart-restarts | insufficient | C | SMART withheld + manual SIGKILL | see Gaps |
 | 29 | pending-silent-137 | insufficient | C, `real-sata` | `pending-sectors.sh` + manual SIGKILL | see Gaps |
@@ -401,7 +402,13 @@ NPD uninstalled *and* its conditions removed from the node status
 
 **Stable-defect block (S).** Install the scarred drive, set up as 4.6,
 then leave the collector running untouched for ≥ 24 h before the first
-capture, so its oldest snapshot is a day old with the same counts.
+capture, so its oldest snapshot is a day old with the same counts. These
+scenarios (`hardware: [scarred-sata]`) must be captured with
+`--disk scarred`: capture reads the drive at that inventory entry's
+`device`, follows it by serial into the collector's oldest reading, and
+refuses unless reallocated is above zero and unchanged and pending is 0 in
+both readings. A refusal here means the drive is not (or is no longer) scarred;
+there is no override.
 
 ### 4.8 Check, commit, evaluate
 
@@ -470,10 +477,14 @@ capture, so its oldest snapshot is a day old with the same counts.
    the drive whose serial the injection record names (snapshots now end in
    `serial=`), wherever its device path moved. `degradation.sh start` now
    waits for the first step and records `smartAfterInjection`.
-3. **Stable defects are not verified.** The five `realloc-stable` scenarios
-   have no `hardware` tag and no check that the disk has non-zero,
-   unchanged reallocated sectors over ≥ 24 h of collector history. A clean
-   drive would be captured without complaint.
+3. ~~**Stable defects are not verified.**~~ *Resolved.* The five
+   `realloc-stable` scenarios declare `hardware: [scarred-sata]`, and
+   capture refuses them unless the drive named by `--disk` (its inventory
+   `device`, then followed by serial) shows reallocated sectors above zero
+   and unchanged since the collector's earlier reading, with pending 0 in
+   both (non-zero pending means the drive is actively failing, and the
+   expected answers assume it is not). The age of that reading is not checked; the 24 h soak in 4.7 is
+   still the operator's job.
 4. **No helper to target a workload's blocks.** `SECTORS`/`BAD_BLOCKS`
    default to mid-disk. Until one exists, compute them by hand: with ext4
    made directly on `/dev/mapper/tropis-target` (offset 0, 4 KiB blocks),
