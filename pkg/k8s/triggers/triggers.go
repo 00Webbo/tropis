@@ -69,12 +69,14 @@ var storageEvictionNodeReasons = map[string]bool{
 // storageResources are the words the kubelet uses for storage in eviction
 // and reclaim messages ("The node was low on resource: ephemeral-storage",
 // "Attempting to reclaim ephemeral-storage", "Usage of EmptyDir volume ...
-// exceeds the limit", "Pod ephemeral local storage usage exceeds ...").
-// EvictionThresholdMet is also emitted for memory and PIDs, which these
-// rules ignore.
+// exceeds the limit", "Pod ephemeral local storage usage exceeds ...",
+// "Container ... exceeded its local ephemeral storage limit ..."; see
+// pkg/kubelet/eviction/helpers.go). EvictionThresholdMet is also emitted
+// for memory and PIDs, which these rules ignore.
 var storageResources = []string{
 	"ephemeral-storage",
 	"ephemeral local storage",
+	"local ephemeral storage",
 	"emptydir",
 	"nodefs",
 	"imagefs",
