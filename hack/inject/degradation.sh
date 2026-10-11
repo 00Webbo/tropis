@@ -90,11 +90,26 @@ start)
 	: >"$STATE_DIR/$FAULT.sectors"
 	state_save "$FAULT" "STARTED=$started" "MODE=$mode" "TOOL=$tool" "STEP=$step" \
 		"INTERVAL=$interval" "MAX=$max" "SMART_BEFORE=$before" "TARGET=$TARGET"
+	rm -f "$STATE_DIR/$FAULT.count"
 	setsid "$0" _worker </dev/null >/dev/null 2>&1 &
-	echo $! >"$STATE_DIR/$FAULT.pid"
+	pid=$!
+	echo "$pid" >"$STATE_DIR/$FAULT.pid"
+
+	# Wait for the worker's first step, so the start record carries a reading
+	# taken after the fault began, as every other script's does. Bad-sector
+	# reads can take a drive many seconds each, hence the generous bound.
+	waited=0
+	while [ ! -s "$STATE_DIR/$FAULT.count" ] && [ "$waited" -lt "${FIRST_STEP_TIMEOUT:-900}" ] &&
+		kill -0 "$pid" 2>/dev/null; do
+		sleep 1
+		waited=$((waited + 1))
+	done
+	[ -s "$STATE_DIR/$FAULT.count" ] || echo "degradation: first step not finished after ${waited}s; recording SMART as it is now" >&2
+	after_start="$(smart_snapshot)"
 
 	emit disk.progressive_degradation "$tool" "$TARGET" "$started" "" \
-		"step=$step" "intervalSecs=$interval" "max=$max" "smartEffect=$mode" "smartBefore=$before"
+		"step=$step" "intervalSecs=$interval" "max=$max" "smartEffect=$mode" \
+		"smartBefore=$before" "smartAfterInjection=$after_start"
 	;;
 _worker)
 	worker

@@ -235,8 +235,8 @@ dm_table_type() {
 }
 
 # smart_snapshot prints the target's reallocated, pending and uncorrectable
-# counts, read through the real SMART parser, or "unavailable" where the
-# device has no SMART (a loop device, for instance).
+# counts and its serial number, read through the real SMART parser, or
+# "unavailable" where the device has no SMART (a loop device, for instance).
 #
 # Taken before and after every fault, so a label records what actually
 # happened to the SMART data rather than what the injection hoped for.
@@ -251,15 +251,18 @@ smart_snapshot() {
 	smartctl -j -a "$TARGET" >"$tmp/target.json" 2>/dev/null || true
 	out="$("$collector" collect --from-dir "$tmp" 2>/dev/null)" || out=""
 	rm -rf "$tmp"
-	local r p u
+	local r p u sn
 	r="$(printf '%s\n' "$out" | sed -n 's/.*"reallocatedSectors": *\([0-9]*\).*/\1/p' | head -n1)"
 	p="$(printf '%s\n' "$out" | sed -n 's/.*"pendingSectors": *\([0-9]*\).*/\1/p' | head -n1)"
 	u="$(printf '%s\n' "$out" | sed -n 's/.*"uncorrectableErrors": *\([0-9]*\).*/\1/p' | head -n1)"
+	sn="$(printf '%s\n' "$out" | sed -n 's/.*"serialNumber": *"\([^"]*\)".*/\1/p' | head -n1)"
 	if [ -z "$r$p$u" ]; then
 		echo unavailable
 		return
 	fi
-	echo "reallocated=${r:-na} pending=${p:-na} uncorrectable=${u:-na}"
+	# serial goes last: it identifies the drive to `tropis capture`, which
+	# finds it in the fixture by serial, and it may contain spaces.
+	echo "reallocated=${r:-na} pending=${p:-na} uncorrectable=${u:-na}${sn:+ serial=$sn}"
 }
 
 # is_real_ata reports whether the target is a physical ATA disk, on which

@@ -128,6 +128,12 @@ func Capture(ctx context.Context, src Sources, req Request) (string, error) {
 		return "", refuse("variant is npd-absent but the node carries %d non-kubelet conditions; uninstall NPD and clear its conditions first", len(k8s.NPDConditions))
 	}
 
+	// A SMART-visible scenario is a claim that the drive's counters moved;
+	// check it against the readings the fixture will carry.
+	if err := CheckSMARTChange(req.Scenario.ID, req.Scenario.ExpectSMART, SerialFromRecord(req.Injection), host); err != nil {
+		return "", err
+	}
+
 	f := &schema.Fixture{
 		Version:     schema.FixtureVersion,
 		ScenarioID:  req.Scenario.ID,

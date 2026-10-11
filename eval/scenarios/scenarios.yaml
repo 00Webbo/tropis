@@ -8,7 +8,8 @@
 #
 #   - SMART-visible faults (hardware: [real-sata]) change the drive's own
 #     SMART counters. Only real SATA hardware can produce these; see
-#     hack/inject/pending-sectors.sh.
+#     hack/inject/pending-sectors.sh. `expectSmart` names the counters the
+#     fault must grow; capture refuses a fixture in which none of them did.
 #   - Device-mapper faults produce genuine I/O errors, hangs and corruption
 #     while SMART stays clean — as a failing cable, controller or backplane
 #     does. They are real host-layer faults, labelled as such, and they
@@ -30,6 +31,7 @@ scenarios:
     inject: {script: pending-sectors.sh}
     workload: postgres-hostpath
     hardware: [real-sata]
+    expectSmart: [pending_sectors]
     expected: {relationship: causal, rootCauseLayer: host}
     synthetic: {smart: pending-new, workload: fsync-panic}
 
@@ -41,6 +43,7 @@ scenarios:
     inject: {script: pending-sectors.sh}
     workload: log-writer-hostpath
     hardware: [real-sata]
+    expectSmart: [pending_sectors]
     expected: {relationship: causal, rootCauseLayer: host}
     synthetic: {smart: pending-new, workload: io-error-crashloop}
 
@@ -52,6 +55,7 @@ scenarios:
     inject: {script: pending-sectors.sh}
     workload: batch-reader-hostpath
     hardware: [real-sata]
+    expectSmart: [pending_sectors]
     expected: {relationship: causal, rootCauseLayer: host}
     synthetic: {smart: pending-new, workload: io-error-crashloop}
 
@@ -63,6 +67,7 @@ scenarios:
     inject: {script: pending-sectors.sh}
     workload: postgres-hostpath
     hardware: [real-sata]
+    expectSmart: [pending_sectors]
     expected: {relationship: causal, rootCauseLayer: host}
     synthetic: {smart: pending-new, workload: probe-timeouts}
 
@@ -75,6 +80,7 @@ scenarios:
     inject: {script: degradation.sh, params: {STEP: "4", INTERVAL: "300"}}
     workload: postgres-hostpath
     hardware: [real-sata]
+    expectSmart: [reallocated_sectors]
     expected: {relationship: causal, rootCauseLayer: host}
     synthetic: {smart: realloc-growing, workload: io-error-crashloop}
 
@@ -86,6 +92,7 @@ scenarios:
     inject: {script: degradation.sh, params: {STEP: "4", INTERVAL: "300"}}
     workload: minio-hostpath
     hardware: [real-sata]
+    expectSmart: [reallocated_sectors]
     expected: {relationship: causal, rootCauseLayer: host}
     synthetic: {smart: realloc-growing, workload: io-error-crashloop}
 
@@ -97,6 +104,7 @@ scenarios:
     inject: {script: degradation.sh, params: {STEP: "8", INTERVAL: "120"}}
     workload: postgres-hostpath
     hardware: [real-sata]
+    expectSmart: [reallocated_sectors]
     expected: {relationship: causal, rootCauseLayer: host}
     synthetic: {smart: realloc-growing, workload: fsync-panic}
 
@@ -108,6 +116,7 @@ scenarios:
     inject: {script: degradation.sh, params: {STEP: "4", INTERVAL: "300"}}
     workload: log-writer-hostpath
     hardware: [real-sata]
+    expectSmart: [reallocated_sectors]
     expected: {relationship: causal, rootCauseLayer: host}
     synthetic: {smart: realloc-growing, workload: probe-timeouts}
 
@@ -266,6 +275,7 @@ scenarios:
     inject: {script: pending-sectors.sh}
     workload: memory-hog
     hardware: [real-sata]
+    expectSmart: [pending_sectors]
     expected: {relationship: coincidental}
     synthetic: {smart: pending-new, workload: oom}
 
@@ -310,6 +320,7 @@ scenarios:
     inject: {script: pending-sectors.sh}
     workload: idle
     hardware: [real-sata]
+    expectSmart: [pending_sectors]
     expected: {relationship: insufficient_evidence}
     synthetic: {smart: pending-new, workload: healthy}
 
@@ -330,6 +341,7 @@ scenarios:
     inject: {script: pending-sectors.sh}
     workload: batch-reader-hostpath
     hardware: [real-sata]
+    expectSmart: [pending_sectors]
     expected: {relationship: insufficient_evidence}
     synthetic: {smart: pending-new, workload: silent-137}
 
@@ -341,5 +353,6 @@ scenarios:
     inject: {script: degradation.sh, params: {STEP: "2", INTERVAL: "600"}}
     workload: idle
     hardware: [real-sata]
+    expectSmart: [reallocated_sectors]
     expected: {relationship: insufficient_evidence}
     synthetic: {smart: realloc-growing, workload: healthy}

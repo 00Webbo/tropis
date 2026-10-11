@@ -32,6 +32,7 @@ test guards a rule, do not weaken the test to make a change pass.
 |---|---|---|
 | Tropis is read-only. The only write is its own `NodeHealthReport`, plus opt-in Node Events (create, `default` namespace only, off by default). Any new write goes in `optInGrants` and SECURITY.md together. | The project's core promise | `deploy/rbac_test.go`; `pkg/k8s` `TestCollectIsReadOnly`; `make kind-e2e` |
 | Nothing synthetic in `eval/fixtures/`. | Synthetic fixtures void the published numbers | `fixture.PublishableCorpus`; `tropis eval --publishable` |
+| A `real-sata` fixture's SMART must have moved: capture refuses one unless an `expectSmart` counter grew on the injected drive (matched by serial) since the collector's earlier reading. No override. | A drive that did not react, labelled SMART-visible, is a synthetic fixture with a real one's label | `eval/capture` `TestCheckSMARTChange`, `TestCaptureChecksSMARTChange`; `eval/scenarios` `Validate` |
 | Ground truth never reaches analysis. Only `fixture.LoadLabel*` reads `label.json`, only in the scoring phase. | Otherwise the eval measures recognition of its own test cases | `pkg/fixture` `TestLoaderCannotReachLabels`; `eval/runner` `TestLabelsAreWithheldFromAnalysis` |
 | Model input is built only by `reason.BuildInput`, which redacts. | No unredacted log content may leave the process | `pkg/reason` `TestPlantedCredentialsNeverReachModelInput` |
 | Provider SDKs are imported only in their backend package (`pkg/reason/anthropic`). | A local backend must be supported exactly as well | `pkg/reason` `TestProviderSDKsStayInTheirPackages` |
@@ -56,7 +57,8 @@ test guards a rule, do not weaken the test to make a change pass.
   comparable within a version.
 - **Scenarios are the capture plan.** `eval/scenarios/scenarios.yaml` drives
   both the real capture run and the dev corpus. A scenario expecting SMART to
-  change must declare `hardware: [real-sata]`.
+  change must declare `hardware: [real-sata]` and `expectSmart` (the
+  counters capture checks grew), consistent with its `synthetic.smart`.
 - **`smartctl` exit status is a bitfield.** Non-zero is normal for a failing
   drive. Read the JSON envelope; see the comments in `pkg/host/smart/parse.go`.
 - **Unanchored `.gitignore` patterns** once swallowed `cmd/tropis-collector`

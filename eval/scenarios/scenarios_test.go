@@ -67,6 +67,25 @@ func TestSMARTVisibleScenariosNeedRealHardware(t *testing.T) {
 	}
 }
 
+// The counters capture demands must be the ones the scenario's synthetic
+// archetype grows, so the dev corpus and the real corpus tell the same story.
+func TestExpectSMARTMatchesSyntheticArchetype(t *testing.T) {
+	all, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	grows := map[string]string{"pending-new": CounterPending, "realloc-growing": CounterReallocated}
+	for _, s := range all {
+		if len(s.ExpectSMART) == 0 {
+			continue
+		}
+		want, ok := grows[s.Synthetic.SMART]
+		if !ok || !contains(s.ExpectSMART, want) {
+			t.Errorf("%s: expectSmart %v does not include what synthetic.smart %q grows", s.ID, s.ExpectSMART, s.Synthetic.SMART)
+		}
+	}
+}
+
 func TestValidateRejects(t *testing.T) {
 	bad := `
 scenarios:
@@ -81,12 +100,29 @@ scenarios:
     workload: idle
     expected: {relationship: causal}
     synthetic: {smart: healthy, workload: healthy}
+  - id: real-sata-without-expectation
+    description: d
+    faultType: disk.pending_sectors
+    inject: {script: pending-sectors.sh}
+    workload: idle
+    hardware: [real-sata]
+    expected: {relationship: insufficient_evidence}
+    synthetic: {smart: pending-new, workload: healthy}
+  - id: expectation-without-real-sata
+    description: d
+    faultType: disk.pending_sectors
+    inject: {script: pending-sectors.sh}
+    workload: idle
+    expectSmart: [pending]
+    expected: {relationship: insufficient_evidence}
+    synthetic: {smart: pending-new, workload: healthy}
 `
 	_, err := Parse([]byte(bad))
 	if err == nil {
 		t.Fatal("expected errors")
 	}
-	for _, want := range []string{"lower-case", "description", "rootCauseLayer", "shiny", "set together"} {
+	for _, want := range []string{"lower-case", "description", "rootCauseLayer", "shiny", "set together",
+		"needs expectSmart", "needs hardware: [real-sata]", "not one of [pending_sectors"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error should mention %q:\n%v", want, err)
 		}

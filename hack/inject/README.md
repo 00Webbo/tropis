@@ -26,8 +26,8 @@ one JSON record on stdout, shaped for `label.json`:
 {"faultType": "disk.read_errors",
  "injection": {"tool": "dm-dust", "device": "/dev/sdb",
                "params": {"badBlocks": "200000 200001", "smartEffect": "none",
-                          "smartBefore": "reallocated=0 pending=0 uncorrectable=0",
-                          "smartAfter":  "reallocated=0 pending=0 uncorrectable=0"},
+                          "smartBefore": "reallocated=0 pending=0 uncorrectable=0 serial=WD-WCC4N1234567",
+                          "smartAfter":  "reallocated=0 pending=0 uncorrectable=0 serial=WD-WCC4N1234567"},
                "startedAt": "...", "endedAt": "..."}}
 ```
 
@@ -37,7 +37,10 @@ Most of these faults reproduce the *I/O symptoms* of a failing disk without
 touching its SMART data — only real hardware can change SMART counters. Every
 record says which: `smartEffect` is `real`, `emulated` or `none`, and
 `smartBefore`/`smartAfter` carry the counters as read through Tropis's own
-SMART parser.
+SMART parser, with the drive's `serial=` last. `pending-sectors.sh` and
+`degradation.sh` start records also carry `smartAfterInjection`, read once
+the fault is in place (for `degradation.sh`, after the worker's first step;
+`start` waits up to `FIRST_STEP_TIMEOUT` seconds, default 900, for it).
 
 This matters for the eval corpus. A fixture whose label claims a SMART-visible
 fault when the counters never moved would be a synthetic fixture wearing a
@@ -77,8 +80,11 @@ difference impossible to lose.
    Capture runs before `stop` because stopping removes the fault, and with
    it the state the fixture exists to record. `tropis capture` refuses to
    write a fixture that would misdescribe itself: a `real-sata` scenario
-   whose injection only emulated SMART, an NPD variant that does not match
-   what is on the node, or a fault type the scenario does not expect.
+   whose injection only emulated SMART, a `real-sata` scenario whose drive
+   (found by the record's serial) shows none of its `expectSmart` counters
+   higher than in the collector's earlier reading, an NPD variant that does
+   not match what is on the node, or a fault type the scenario does not
+   expect.
    Repeat with NPD installed for the `npd-present` variant.
 
 The device-mapper faults swap the pass-through device's table live, so a

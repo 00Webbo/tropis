@@ -55,6 +55,13 @@ type Scenario struct {
 	// scenarios whose SMART changes only real hardware can produce.
 	Hardware []string `json:"hardware,omitempty"`
 
+	// ExpectSMART names the SMART counters the injected fault is expected to
+	// grow on the target drive. Capture refuses a fixture unless at least one
+	// of them grew between the collector's earlier reading and the capture,
+	// so a drive that did not react is never labelled as a SMART-visible
+	// fault. Required exactly when Hardware includes "real-sata".
+	ExpectSMART []string `json:"expectSmart,omitempty"`
+
 	// Synthetic describes the observable state for the development corpus
 	// generator. It is never used on the rig.
 	Synthetic SyntheticHints `json:"synthetic"`
@@ -92,6 +99,16 @@ var (
 		"silent-137", "healthy",
 	}
 	NPDArchetypes = []string{"", "readonly-fs", "containerd-restart", "none-firing"}
+
+	// SMARTCounters are the counters a scenario can name in expectSmart.
+	SMARTCounters = []string{CounterPending, CounterReallocated, CounterUncorrectable}
+)
+
+// Counter names for expectSmart, one per normalised smart.Device counter.
+const (
+	CounterPending       = "pending_sectors"
+	CounterReallocated   = "reallocated_sectors"
+	CounterUncorrectable = "uncorrectable_errors"
 )
 
 var idPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
@@ -160,6 +177,23 @@ func Validate(all []Scenario) error {
 		}
 		if s.Inject != nil && !strings.HasSuffix(s.Inject.Script, ".sh") {
 			add("%s: inject.script must name a script in hack/inject", where)
+		}
+
+		// A scenario on real SATA exists to change SMART, so it must say
+		// which counters; capture checks the drive against them.
+		realSATA := in("real-sata", s.Hardware)
+		switch {
+		case realSATA && len(s.ExpectSMART) == 0:
+			add("%s: hardware real-sata needs expectSmart, the counters the fault must grow", where)
+		case !realSATA && len(s.ExpectSMART) > 0:
+			add("%s: expectSmart needs hardware: [real-sata]; nothing else changes SMART", where)
+		case len(s.ExpectSMART) > 0 && s.Inject == nil:
+			add("%s: expectSmart needs an injected fault", where)
+		}
+		for _, c := range s.ExpectSMART {
+			if !in(c, SMARTCounters) {
+				add("%s: expectSmart %q is not one of %v", where, c, SMARTCounters)
+			}
 		}
 
 		if !in(s.Synthetic.SMART, SMARTArchetypes) {
