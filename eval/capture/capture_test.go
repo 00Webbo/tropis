@@ -59,6 +59,16 @@ func sources(t *testing.T, npd bool) Sources {
 	}
 }
 
+// scarred serves the same drive with the same counts in both readings: old,
+// stable defects, as the stable-defect scenarios need.
+func scarred(t *testing.T) Sources {
+	still := map[string]schema.RawJSON{"/dev/sdb": reading(t, sampleSerial, 1544, 0, 96)}
+	return Sources{
+		Host: fakeHost{cur: still, prev: still},
+		K8s:  fakeK8s{}, Now: func() time.Time { return at },
+	}
+}
+
 func inv(t *testing.T) *inventory.Inventory {
 	i, err := inventory.Load(filepath.Join("..", "..", "hack", "inventory.example.yaml"))
 	if err != nil {
@@ -192,14 +202,14 @@ func TestCaptureWillNotOverwrite(t *testing.T) {
 		Scenario: scenario(t, "stable-defects-config-crash"), Variant: schema.VariantNPDAbsent,
 		Node: "worker-02", Disk: "sacrificial", Inventory: inv(t), OutDir: out,
 	}
-	if _, err := Capture(context.Background(), sources(t, false), req); err != nil {
+	if _, err := Capture(context.Background(), scarred(t), req); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Capture(context.Background(), sources(t, false), req); err == nil || !strings.Contains(err.Error(), "--force") {
+	if _, err := Capture(context.Background(), scarred(t), req); err == nil || !strings.Contains(err.Error(), "--force") {
 		t.Errorf("second capture: %v", err)
 	}
 	req.Force = true
-	if _, err := Capture(context.Background(), sources(t, false), req); err != nil {
+	if _, err := Capture(context.Background(), scarred(t), req); err != nil {
 		t.Errorf("forced capture: %v", err)
 	}
 }

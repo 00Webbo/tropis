@@ -86,6 +86,20 @@ func TestExpectSMARTMatchesSyntheticArchetype(t *testing.T) {
 	}
 }
 
+// Exactly the scenarios whose synthetic disk carries stable defects must
+// demand them of the real drive, so neither corpus can drift from the other.
+func TestScarredSATAMatchesSyntheticArchetype(t *testing.T) {
+	all, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range all {
+		if contains(s.Hardware, "scarred-sata") != (s.Synthetic.SMART == "realloc-stable") {
+			t.Errorf("%s: hardware %v does not match synthetic.smart %q", s.ID, s.Hardware, s.Synthetic.SMART)
+		}
+	}
+}
+
 func TestValidateRejects(t *testing.T) {
 	bad := `
 scenarios:
@@ -116,13 +130,29 @@ scenarios:
     expectSmart: [pending]
     expected: {relationship: insufficient_evidence}
     synthetic: {smart: pending-new, workload: healthy}
+  - id: scarred-and-real
+    description: d
+    faultType: disk.pending_sectors
+    inject: {script: pending-sectors.sh}
+    workload: idle
+    hardware: [real-sata, scarred-sata]
+    expectSmart: [pending_sectors]
+    expected: {relationship: insufficient_evidence}
+    synthetic: {smart: pending-new, workload: healthy}
+  - id: hardware-typo
+    description: d
+    workload: idle
+    hardware: [scared-sata]
+    expected: {relationship: coincidental}
+    synthetic: {smart: realloc-stable, workload: oom}
 `
 	_, err := Parse([]byte(bad))
 	if err == nil {
 		t.Fatal("expected errors")
 	}
 	for _, want := range []string{"lower-case", "description", "rootCauseLayer", "shiny", "set together",
-		"needs expectSmart", "needs hardware: [real-sata]", "not one of [pending_sectors"} {
+		"needs expectSmart", "needs hardware: [real-sata]", "not one of [pending_sectors",
+		"contradict each other", `hardware "scared-sata" is not one of`} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error should mention %q:\n%v", want, err)
 		}

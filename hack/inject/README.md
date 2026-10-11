@@ -93,7 +93,9 @@ difference impossible to lose.
    write a fixture that would misdescribe itself: a `real-sata` scenario
    whose injection only emulated SMART, a `real-sata` scenario whose drive
    (found by the record's serial) shows none of its `expectSmart` counters
-   higher than in the collector's earlier reading, an NPD variant that does
+   higher than in the collector's earlier reading, a `scarred-sata`
+   scenario whose `--disk` drive does not show reallocated sectors above
+   zero and unchanged (pending 0), an NPD variant that does
    not match what is on the node, or a fault type the scenario does not
    expect.
    Repeat with NPD installed for the `npd-present` variant.

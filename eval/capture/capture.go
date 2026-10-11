@@ -133,6 +133,17 @@ func Capture(ctx context.Context, src Sources, req Request) (string, error) {
 	if err := CheckSMARTChange(req.Scenario.ID, req.Scenario.ExpectSMART, SerialFromRecord(req.Injection), host); err != nil {
 		return "", err
 	}
+	// A stable-defect scenario is a claim that the drive carries old defects
+	// that are not moving; check that too.
+	if hasHardware(req.Scenario, "scarred-sata") {
+		device := ""
+		if disk != nil {
+			device = disk.Device
+		}
+		if err := CheckStableDefects(req.Scenario.ID, device, host); err != nil {
+			return "", err
+		}
+	}
 
 	f := &schema.Fixture{
 		Version:     schema.FixtureVersion,
