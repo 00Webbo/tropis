@@ -110,7 +110,9 @@ SATA hardware (`hardware: [real-sata]`); see `hack/inject/README.md`.
 
 SMART-clean faults reach the model only if the Kubernetes-side pre-filter
 rules (`pkg/k8s/triggers`) raise them: the kubelet's `DiskPressure`
-condition, storage evictions, or a libc storage error text (`Input/output
+condition, storage evictions (under node pressure, or for a pod overrunning
+its own ephemeral-storage limit or emptyDir `sizeLimit`, which is how the
+exhaustion scenarios are produced), or a libc storage error text (`Input/output
 error`, `Read-only file system`, `No space left on device`, `Structure needs
 cleaning`, `Disk quota exceeded`) from a failing container or in a Warning
 event. The signatures come from errno semantics, not from the corpus;

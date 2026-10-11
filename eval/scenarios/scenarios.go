@@ -95,8 +95,8 @@ var (
 	}
 	WorkloadArchetypes = []string{
 		"io-error-crashloop", "fsync-panic", "probe-timeouts", "readonly-fs",
-		"fs-corrupt", "evictions", "config-crash", "oom", "runtime-down",
-		"silent-137", "healthy",
+		"fs-corrupt", "container-storage-eviction", "emptydir-eviction",
+		"config-crash", "oom", "runtime-down", "silent-137", "healthy",
 	}
 	NPDArchetypes = []string{"", "readonly-fs", "containerd-restart", "none-firing"}
 

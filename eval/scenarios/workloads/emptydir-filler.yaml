@@ -1,0 +1,74 @@
+# A report job whose temporary files run away in its emptyDir scratch
+# volume until the volume exceeds its sizeLimit and the kubelet evicts the
+# pod ("Usage of EmptyDir volume "scratch" exceeds the limit"). Beside it, a
+# healthy bystander. Nothing here touches the test disk: an emptyDir lives
+# under the kubelet's root directory, which on the rig is the boot disk.
+#
+# The workload is the fault, so apply it only after
+# hack/inject/ephemeral-exhaustion.sh start has checked the node and opened
+# the record. Writes are rate-limited (4 MiB/s) and hard-capped at 512 MiB,
+# and backoffLimit 0 means a single pod, so even if the kubelet never
+# evicted, the boot disk would absorb at most that much.
+#
+# The container sets no ephemeral-storage limit, so the kubelet's emptyDir
+# check is the only one that can fire.
+#
+# The script uses $((i)), never $i: envsubst would replace $i with nothing.
+apiVersion: v1
+kind: Namespace
+metadata: {name: tropis-eval}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: report-builder
+  namespace: tropis-eval
+  labels: {app: report-builder, tropis.io/eval: "true"}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels: {app: report-builder, tropis.io/eval: "true"}
+    spec:
+      nodeSelector: {kubernetes.io/hostname: "${TROPIS_NODE}"}
+      restartPolicy: Never
+      containers:
+        - name: builder
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "building monthly report; staging parts in /scratch"
+              i=0
+              while [ "$((i))" -lt 128 ]; do
+                dd if=/dev/urandom of=/scratch/part-$((i)).tmp bs=1M count=4 2>/dev/null
+                i=$((i + 1))
+                [ $((i % 16)) -eq 0 ] && echo "staged $((i)) parts ($((i * 4)) MiB)"
+                sleep 1
+              done
+              echo "staged $((i)) parts; merge step never reached"
+              exec sleep 2147483647
+          resources:
+            requests: {cpu: 50m, memory: 16Mi, ephemeral-storage: 64Mi}
+            limits: {memory: 64Mi}
+          volumeMounts:
+            - {name: scratch, mountPath: /scratch}
+      volumes:
+        - name: scratch
+          emptyDir: {sizeLimit: 256Mi}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: tropis-eval
+  labels: {app: frontend, tropis.io/eval: "true"}
+spec:
+  nodeSelector: {kubernetes.io/hostname: "${TROPIS_NODE}"}
+  containers:
+    - name: web
+      image: nginx:1.27
+      resources:
+        requests: {cpu: 50m, memory: 32Mi, ephemeral-storage: 100Mi}
+        limits: {memory: 128Mi, ephemeral-storage: 500Mi}

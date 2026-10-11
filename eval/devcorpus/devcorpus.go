@@ -195,6 +195,8 @@ func sataJSON(st sataState, at time.Time) schema.RawJSON {
 	return b
 }
 
+func ptr[T any](v T) *T { return &v }
+
 func min64(a, b uint64) uint64 {
 	if a < b {
 		return a
@@ -262,12 +264,9 @@ func uid(parts ...string) types.UID {
 	return types.UID(strings.Join(parts, "-"))
 }
 
-func node(at time.Time, diskPressure bool) *corev1.Node {
-	dp := corev1.ConditionFalse
-	reason := "KubeletHasNoDiskPressure"
-	if diskPressure {
-		dp, reason = corev1.ConditionTrue, "KubeletHasDiskPressure"
-	}
+// node fabricates the Node. No scenario puts it under DiskPressure: the rig
+// never fills the kubelet's filesystem (see the exhaustion scenarios).
+func node(at time.Time) *corev1.Node {
 	t := metav1.NewTime(at.Add(-30 * time.Minute))
 	return &corev1.Node{
 		TypeMeta:   metav1.TypeMeta{Kind: "Node", APIVersion: "v1"},
@@ -275,7 +274,7 @@ func node(at time.Time, diskPressure bool) *corev1.Node {
 		Status: corev1.NodeStatus{
 			Conditions: []corev1.NodeCondition{
 				{Type: corev1.NodeReady, Status: corev1.ConditionTrue, Reason: "KubeletReady", LastTransitionTime: metav1.NewTime(at.Add(-72 * time.Hour))},
-				{Type: corev1.NodeDiskPressure, Status: dp, Reason: reason, LastTransitionTime: t},
+				{Type: corev1.NodeDiskPressure, Status: corev1.ConditionFalse, Reason: "KubeletHasNoDiskPressure", LastTransitionTime: t},
 				{Type: corev1.NodeMemoryPressure, Status: corev1.ConditionFalse, Reason: "KubeletHasSufficientMemory"},
 			},
 			NodeInfo: corev1.NodeSystemInfo{KernelVersion: "6.8.0-45-generic", KubeletVersion: "v1.31.2", ContainerRuntimeVersion: "containerd://1.7.22"},
@@ -290,7 +289,10 @@ type podSpec struct {
 	status    corev1.ContainerStatus
 	phase     corev1.PodPhase
 	reason    string
+	message   string
 	memLimit  string
+	// ephemeralLimit, when set, is the container's ephemeral-storage limit.
+	ephemeralLimit string
 }
 
 func hostPathVolume(sub string) *corev1.Volume {
@@ -316,7 +318,12 @@ func pod(p podSpec, at time.Time) *corev1.Pod {
 				},
 			}},
 		},
-		Status: corev1.PodStatus{Phase: p.phase, Reason: p.reason, StartTime: &started},
+		Status: corev1.PodStatus{Phase: p.phase, Reason: p.reason, Message: p.message, StartTime: &started},
+	}
+	if p.ephemeralLimit != "" {
+		r := &out.Spec.Containers[0].Resources
+		r.Requests[corev1.ResourceEphemeralStorage] = resource.MustParse("64Mi")
+		r.Limits[corev1.ResourceEphemeralStorage] = resource.MustParse(p.ephemeralLimit)
 	}
 	if p.volume != nil {
 		out.Spec.Volumes = []corev1.Volume{*p.volume}
@@ -383,8 +390,10 @@ func appFor(workload string) (pod, container, volume string) {
 		return "cache-warmer", "warmer", "cache"
 	case "config-crash":
 		return "checkout", "api", ""
-	case "disk-filler":
-		return "log-spammer", "spam", "spool"
+	case "log-spam":
+		return "session-cache", "app", ""
+	case "emptydir-filler":
+		return "report-builder-q8m4t", "builder", ""
 	default:
 		return "idle", "idle", "idle"
 	}
@@ -399,7 +408,6 @@ func workloadFor(s scenarios.Scenario, at time.Time) (schema.K8sCapture, []strin
 	k := schema.K8sCapture{CollectedAt: at, Logs: map[string]string{}}
 	var pods []*corev1.Pod
 	var events []*corev1.Event
-	diskPressure := false
 	alerts := []string{"KubePodCrashLooping"}
 	k8sgpt := fmt.Sprintf("Pod tropis-eval/%s: back-off restarting failed container %s.", name, container)
 
@@ -450,16 +458,27 @@ func workloadFor(s scenarios.Scenario, at time.Time) (schema.K8sCapture, []strin
 			"md5sum: /data/dataset: Structure needs cleaning",
 			"dataset read failed")
 		backoff()
-	case "evictions":
-		diskPressure = true
-		alerts = []string{"NodeFilesystemAlmostOutOfSpace", "KubeletDiskPressure"}
-		k8sgpt = "Pod tropis-eval/frontend: The node was low on resource: ephemeral-storage."
+	case "container-storage-eviction", "emptydir-eviction":
+		// The kubelet evicts the workload for overrunning its own local
+		// storage allowance; the node is under no pressure, so stock alerts
+		// have nothing to say, and a bystander keeps running. Messages are
+		// the kubelet's own formats (pkg/kubelet/eviction/helpers.go).
+		msg := `Usage of EmptyDir volume "scratch" exceeds the limit "256Mi". `
+		spec := podSpec{name: name, container: container, phase: corev1.PodFailed, reason: "Evicted",
+			volume: &corev1.Volume{Name: "scratch", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{SizeLimit: ptr(resource.MustParse("256Mi"))}}}}
+		if s.Synthetic.Workload == "container-storage-eviction" {
+			msg = fmt.Sprintf("Container %s exceeded its local ephemeral storage limit %q. ", container, "256Mi")
+			spec.volume, spec.ephemeralLimit = nil, "256Mi"
+		}
+		spec.message = msg
+		spec.status = corev1.ContainerStatus{Name: container, State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{
+			Reason: "Error", ExitCode: 137, FinishedAt: metav1.NewTime(evAt)}}}
 		pods = append(pods,
-			pod(podSpec{name: name, container: container, volume: volume(), phase: corev1.PodRunning, status: running(container, at)}, at),
-			pod(podSpec{name: "frontend", container: "web", phase: corev1.PodFailed, reason: "Evicted"}, at))
-		events = append(events,
-			event(s.ID+"-threshold", "Node", nodeName, "Warning", "EvictionThresholdMet", "Attempting to reclaim ephemeral-storage", 3, evAt.Add(-time.Minute)),
-			event(s.ID+"-evicted", "Pod", "frontend", "Warning", "Evicted", "The node was low on resource: ephemeral-storage. Threshold quantity: 10%, available: 0.", 1, evAt))
+			pod(spec, at),
+			pod(podSpec{name: "frontend", container: "web", phase: corev1.PodRunning, status: running("web", at)}, at))
+		events = append(events, event(s.ID+"-evicted", "Pod", name, "Warning", "Evicted", msg, 1, evAt))
+		alerts = nil
+		k8sgpt = fmt.Sprintf("Pod tropis-eval/%s: %s", name, strings.TrimSpace(msg))
 	case "config-crash":
 		pods = append(pods, pod(podSpec{name: name, container: container, volume: volume(), phase: corev1.PodRunning, status: crashLoop(container, 9, "Error", 1, at)}, at))
 		k.Logs[logKey+"/previous"] = stamp(at.Add(-4*time.Minute), "panic: required env PAYMENTS_URL is not set")
@@ -490,7 +509,7 @@ func workloadFor(s scenarios.Scenario, at time.Time) (schema.K8sCapture, []strin
 		return k, nil, "", fmt.Errorf("unknown workload archetype %q", s.Synthetic.Workload)
 	}
 
-	k.NodeJSON = raw(node(at, diskPressure))
+	k.NodeJSON = raw(node(at))
 	for _, p := range pods {
 		k.Pods = append(k.Pods, raw(p))
 	}

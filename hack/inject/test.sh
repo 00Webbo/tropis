@@ -147,6 +147,41 @@ rec="$("$HERE/disk-exhaustion.sh" stop)" && check_record disk-exhaustion "$rec" 
 dd if=/dev/zero of="$MNT/probe" bs=1M count=8 status=none && pass "disk-exhaustion: space back after stop" || fail "disk-exhaustion: still full after stop"
 rm -f "$MNT/probe"
 
+# --- ephemeral-storage exhaustion --------------------------------------------
+#
+# Injects nothing (the workload is the fault), so what is tested is the
+# checks: kubelet storage on the target disk, a dedicated image filesystem
+# and too little headroom must all be refused. The stand-in kubelet and
+# runtime roots live on the container's own filesystem, off the target.
+
+mkdir -p "$WORK/kubelet" "$WORK/containerd" "$WORK/pods" "$MNT/kubelet"
+eph() { TROPIS_KUBELET_DIR="$WORK/kubelet" TROPIS_RUNTIME_DIR="$WORK/containerd" TROPIS_POD_LOG_DIR="$WORK/pods" \
+	CAP_BYTES=1 HEADROOM_BYTES=1 MIN_FREE_PCT=0 "$@"; }
+rec="$(eph "$HERE/ephemeral-exhaustion.sh" start)" && check_record ephemeral-exhaustion "$rec" storage.ephemeral_exhaustion no || fail "ephemeral-exhaustion start"
+"$HERE/ephemeral-exhaustion.sh" status >/dev/null && pass "ephemeral-exhaustion: active" || fail "ephemeral-exhaustion: not active after start"
+rec="$(eph "$HERE/ephemeral-exhaustion.sh" stop)" && check_record ephemeral-exhaustion "$rec" storage.ephemeral_exhaustion yes || fail "ephemeral-exhaustion stop"
+printf '%s' "$rec" | jq -e '.injection.params.nodefsAvailAfter | test("^[0-9]+$")' >/dev/null &&
+	pass "ephemeral-exhaustion: stop records nodefs space" || fail "ephemeral-exhaustion: no nodefsAvailAfter: $rec"
+if eph env TROPIS_KUBELET_DIR="$MNT/kubelet" "$HERE/ephemeral-exhaustion.sh" start >/dev/null 2>&1; then
+	fail "ephemeral-exhaustion: kubelet root on the target disk was accepted"
+	eph "$HERE/ephemeral-exhaustion.sh" stop >/dev/null 2>&1
+else
+	pass "ephemeral-exhaustion: refuses a kubelet root on the target disk"
+fi
+if eph env TROPIS_RUNTIME_DIR=/proc "$HERE/ephemeral-exhaustion.sh" start >/dev/null 2>&1; then
+	fail "ephemeral-exhaustion: a dedicated image filesystem was accepted"
+	eph "$HERE/ephemeral-exhaustion.sh" stop >/dev/null 2>&1
+else
+	pass "ephemeral-exhaustion: refuses a dedicated image filesystem"
+fi
+if eph env HEADROOM_BYTES=1125899906842624 "$HERE/ephemeral-exhaustion.sh" start >/dev/null 2>&1; then
+	fail "ephemeral-exhaustion: insufficient headroom was accepted"
+	eph "$HERE/ephemeral-exhaustion.sh" stop >/dev/null 2>&1
+else
+	pass "ephemeral-exhaustion: refuses without headroom"
+fi
+rmdir "$MNT/kubelet"
+
 # --- filesystem corruption ---------------------------------------------------
 
 rec="$("$HERE/fs-corruption.sh" start)" && check_record fs-corruption "$rec" disk.fs_corruption no || fail "fs-corruption start"

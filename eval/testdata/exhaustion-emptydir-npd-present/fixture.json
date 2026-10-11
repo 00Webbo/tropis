@@ -334,10 +334,10 @@
           },
           {
             "type": "DiskPressure",
-            "status": "True",
+            "status": "False",
             "lastHeartbeatTime": null,
             "lastTransitionTime": "2026-09-01T18:30:00Z",
-            "reason": "KubeletHasDiskPressure"
+            "reason": "KubeletHasNoDiskPressure"
           },
           {
             "type": "MemoryPressure",
@@ -371,22 +371,22 @@
         "kind": "Pod",
         "apiVersion": "v1",
         "metadata": {
-          "name": "log-spammer",
+          "name": "report-builder-q8m4t",
           "namespace": "tropis-eval",
-          "uid": "pod-log-spammer"
+          "uid": "pod-report-builder-q8m4t"
         },
         "spec": {
           "volumes": [
             {
-              "name": "data",
-              "hostPath": {
-                "path": "/mnt/disks/sacrificial/spool"
+              "name": "scratch",
+              "emptyDir": {
+                "sizeLimit": "256Mi"
               }
             }
           ],
           "containers": [
             {
-              "name": "spam",
+              "name": "builder",
               "resources": {
                 "limits": {
                   "memory": "512Mi"
@@ -401,18 +401,23 @@
           "nodeName": "worker-02"
         },
         "status": {
-          "phase": "Running",
+          "phase": "Failed",
+          "message": "Usage of EmptyDir volume \"scratch\" exceeds the limit \"256Mi\". ",
+          "reason": "Evicted",
           "startTime": "2026-09-01T17:00:00Z",
           "containerStatuses": [
             {
-              "name": "spam",
+              "name": "builder",
               "state": {
-                "running": {
-                  "startedAt": "2026-09-01T17:00:00Z"
+                "terminated": {
+                  "exitCode": 137,
+                  "reason": "Error",
+                  "startedAt": null,
+                  "finishedAt": "2026-09-01T18:58:00Z"
                 }
               },
               "lastState": {},
-              "ready": true,
+              "ready": false,
               "restartCount": 0,
               "image": "",
               "imageID": ""
@@ -446,9 +451,23 @@
           "nodeName": "worker-02"
         },
         "status": {
-          "phase": "Failed",
-          "reason": "Evicted",
-          "startTime": "2026-09-01T17:00:00Z"
+          "phase": "Running",
+          "startTime": "2026-09-01T17:00:00Z",
+          "containerStatuses": [
+            {
+              "name": "web",
+              "state": {
+                "running": {
+                  "startedAt": "2026-09-01T17:00:00Z"
+                }
+              },
+              "lastState": {},
+              "ready": true,
+              "restartCount": 0,
+              "image": "",
+              "imageID": ""
+            }
+          ]
         }
       }
     ],
@@ -457,40 +476,17 @@
         "kind": "Event",
         "apiVersion": "v1",
         "metadata": {
-          "name": "worker-02.exhaustion-emptydir-threshold",
-          "namespace": "default",
-          "uid": "event-exhaustion-emptydir-threshold"
-        },
-        "involvedObject": {
-          "kind": "Node",
-          "name": "worker-02"
-        },
-        "reason": "EvictionThresholdMet",
-        "message": "Attempting to reclaim ephemeral-storage",
-        "source": {},
-        "firstTimestamp": null,
-        "lastTimestamp": "2026-09-01T18:57:00Z",
-        "count": 3,
-        "type": "Warning",
-        "eventTime": null,
-        "reportingComponent": "",
-        "reportingInstance": ""
-      },
-      {
-        "kind": "Event",
-        "apiVersion": "v1",
-        "metadata": {
-          "name": "frontend.exhaustion-emptydir-evicted",
+          "name": "report-builder-q8m4t.exhaustion-emptydir-evicted",
           "namespace": "tropis-eval",
           "uid": "event-exhaustion-emptydir-evicted"
         },
         "involvedObject": {
           "kind": "Pod",
           "namespace": "tropis-eval",
-          "name": "frontend"
+          "name": "report-builder-q8m4t"
         },
         "reason": "Evicted",
-        "message": "The node was low on resource: ephemeral-storage. Threshold quantity: 10%, available: 0.",
+        "message": "Usage of EmptyDir volume \"scratch\" exceeds the limit \"256Mi\". ",
         "source": {},
         "firstTimestamp": null,
         "lastTimestamp": "2026-09-01T18:58:00Z",
@@ -522,11 +518,7 @@
     "collectedAt": "2026-09-01T19:00:00Z"
   },
   "baseline": {
-    "prometheusAlerts": [
-      "NodeFilesystemAlmostOutOfSpace",
-      "KubeletDiskPressure"
-    ],
-    "k8sgptOutput": "Pod tropis-eval/frontend: The node was low on resource: ephemeral-storage."
+    "k8sgptOutput": "Pod tropis-eval/report-builder-q8m4t: Usage of EmptyDir volume \"scratch\" exceeds the limit \"256Mi\"."
   },
   "synthetic": true
 }

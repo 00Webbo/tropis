@@ -17,7 +17,18 @@ block device. Read the safety section before running any of them.
 | `degradation.sh` | `disk.progressive_degradation` | growing bad-sector set, via hdparm or dm-dust | Real SATA only |
 | `fs-corruption.sh` | `disk.fs_corruption` | overwrites an inode on a mounted ext4 | No |
 | `disk-exhaustion.sh` | `disk.exhaustion` | fills the filesystem, root reserve included | No |
+| `ephemeral-exhaustion.sh` | `storage.ephemeral_exhaustion` | none: the workload overruns its own ephemeral-storage limit; the script checks the node is safe and records the window | No |
 | `containerd-kill.sh` | `runtime.containerd_kill` | SIGKILL to containerd, once or repeatedly | No |
+
+`ephemeral-exhaustion.sh` is the one script that injects nothing and
+destroys nothing. Its fault is a Kubernetes-layer one, a workload filling
+its own ephemeral storage, which lives on the kubelet's filesystem and so
+must never be produced by writing to a disk directly. It refuses unless
+kubelet, runtime and pod-log storage are all off the target disk, the
+runtime shares the kubelet's filesystem (otherwise container writable
+layers do not count toward their limits) and that filesystem keeps ample
+headroom after the workload's capped writes. Apply the scenario's workload
+right after `start`.
 
 Every script takes `start`, `stop` and `status`. `start` and `stop` each print
 one JSON record on stdout, shaped for `label.json`:

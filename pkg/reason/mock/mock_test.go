@@ -105,6 +105,28 @@ func TestMockCausalKubernetes(t *testing.T) {
 	}
 }
 
+// A pod evicted for overrunning its own local storage allowance, with no
+// node pressure: the kubelet's three limit messages, verbatim.
+func TestMockCausalKubernetesLimitEviction(t *testing.T) {
+	for _, msg := range []string{
+		`Usage of EmptyDir volume \"scratch\" exceeds the limit \"256Mi\". `,
+		`Pod ephemeral local storage usage exceeds the total limit of containers 768Mi. `,
+		`Container app exceeded its local ephemeral storage limit \"256Mi\". `,
+	} {
+		v := analyze(t, reason.Request{
+			Host: schema.HostCapture{SMART: map[string]schema.RawJSON{"/dev/sda": sata("/dev/sda", true, 0, 0)}},
+			Kubernetes: schema.K8sCapture{
+				Events: []schema.RawJSON{schema.RawJSON(`{"metadata":{"uid":"e1","namespace":"web","name":"x"},
+				 "involvedObject":{"kind":"Pod","namespace":"web","name":"cache-0"},"type":"Warning","reason":"Evicted",
+				 "message":"` + msg + `"}`)},
+			},
+		})
+		if v.Relationship != schema.RelationshipCausal || v.RootCause == nil || v.RootCause.Layer != schema.LayerKubernetes {
+			t.Errorf("%s: verdict = %+v", msg, v)
+		}
+	}
+}
+
 func TestMockInsufficientEvidence(t *testing.T) {
 	v := analyze(t, reason.Request{
 		Host: schema.HostCapture{SMART: map[string]schema.RawJSON{"/dev/sda": sata("/dev/sda", true, 0, 0)}},

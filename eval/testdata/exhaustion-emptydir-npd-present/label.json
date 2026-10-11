@@ -2,6 +2,6 @@
   "scenarioId": "exhaustion-emptydir",
   "relationship": "causal",
   "rootCauseLayer": "kubernetes",
-  "faultType": "disk.exhaustion",
-  "notes": "SYNTHETIC development fixture, not captured from hardware. An emptyDir on the target filesystem is filled by a runaway job, producing DiskPressure and ephemeral-storage evictions."
+  "faultType": "storage.ephemeral_exhaustion",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. A runaway report job fills its emptyDir scratch volume past the volume's sizeLimit and the kubelet evicts the pod. The disk hardware is healthy and the node is under no disk pressure; the workload is the cause of the storage symptom. A sizeLimit, rather than node DiskPressure, because the rig cannot safely fill the kubelet's filesystem, on the boot disk."
 }

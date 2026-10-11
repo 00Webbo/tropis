@@ -20,7 +20,7 @@ so the job is **60 fixtures**: one `fixture.json` + `label.json` per
 |---|---|---|---|
 | `causal`, host, SMART-visible (`real-sata`) | 8 | 16 | 16 |
 | `causal`, host, SMART clean (device-mapper) | 10 | 20 | 0 |
-| `causal`, Kubernetes (disk exhaustion) | 2 | 4 | 0 |
+| `causal`, Kubernetes (ephemeral-storage exhaustion) | 2 | 4 | 0 |
 | **Positives** | **20** | **40** | 16 |
 | `coincidental` (negative controls) | 6 | 12 | 2 |
 | `insufficient_evidence` | 4 | 8 | 6 |
@@ -49,8 +49,7 @@ pooled):
   `insufficient_evidence` behaviour mean anything.
 - The margin is thin. The 4 `io-timeout-*` fixtures are a known miss (not
   raised unless SMART moves; eval/README.md, *Known gap*), leaving at most
-  4 further misses among the other 36 positives. The 4 exhaustion fixtures
-  are also at risk (see Gaps).
+  4 further misses among the other 36 positives.
 
 ## 2. Hardware
 
@@ -194,8 +193,8 @@ All scenarios run on `worker-02`; `TROPIS_DISK` is the drive's inventory id.
 | 16 | fs-corruption-readonly | causal/host | C | `fs-corruption.sh` | VICTIM in `log-writer/`; mkfs after |
 | 17 | fs-corruption-app-errors | causal/host | C | `fs-corruption.sh` | VICTIM=`batch/dataset`; mkfs after |
 | 18 | read-errors-batch | causal/host | C, dm | `read-errors.sh` | BAD_BLOCKS under `batch/dataset` |
-| 19 | exhaustion-log-spam | causal/k8s | C | `disk-exhaustion.sh` | see Gaps: no DiskPressure on this mount |
-| 20 | exhaustion-emptydir | causal/k8s | C | `disk-exhaustion.sh` | see Gaps: emptyDir is not on this disk |
+| 19 | exhaustion-log-spam | causal/k8s | C (idle) | `ephemeral-exhaustion.sh`, then the `log-spam` workload | container exceeds its ephemeral-storage limit and is evicted; see 4.7 |
+| 20 | exhaustion-emptydir | causal/k8s | C (idle) | `ephemeral-exhaustion.sh`, then the `emptydir-filler` workload | emptyDir exceeds its `sizeLimit` and the pod is evicted; see 4.7 |
 | 21 | stable-defects-config-crash | coincidental | **S** | natural defects; no injection | collector up ≥ 24 h on S |
 | 22 | stable-defects-oom | coincidental | **S** | natural defects | |
 | 23 | pending-sectors-unrelated-oom | coincidental | C, `real-sata` | `pending-sectors.sh` | default (mid-disk) LBAs, away from workload data |
@@ -301,6 +300,10 @@ tropis inventory target --inventory rig.yaml --node worker-02 --disk clean
 - Never mark the boot disk destructible, never mount a test disk at a system
   path, and never point kubelet or containerd storage at a test disk. The
   scripts refuse all three; do not work around a refusal.
+- The two exhaustion workloads write to the boot disk, through the kubelet's
+  ephemeral storage, at most 512 MiB each, rate-limited. Never raise their
+  caps or remove their limits, and never fill the kubelet's filesystem to
+  make DiskPressure happen.
 - `TROPIS_INJECT_CONFIRM` is set per session to exactly `worker-02/<disk>`.
   Unset it when you stop for the day.
 - Before swapping drives: every fault `stop`ped (`<script> status`),
@@ -344,8 +347,23 @@ and do them all again with it present. For each scenario:
 3. **Inject** with the scenario's `params` as environment variables:
    `STEP=4 INTERVAL=300 hack/inject/degradation.sh start > fault.json`.
    Skip for scenarios with no `inject`.
+
+   **Exhaustion scenarios swap steps 2 and 3**, because the workload is the
+   fault: `hack/inject/ephemeral-exhaustion.sh start > fault.json` first,
+   then apply `log-spam` or `emptydir-filler`. The script writes nothing; it
+   refuses unless `/var/lib/kubelet`, `/var/lib/containerd` and
+   `/var/log/pods` are off the test disk, containerd shares the kubelet's
+   filesystem (kubespray's default; with a separate image filesystem the
+   kubelet does not count container writable layers toward their limits),
+   and that filesystem keeps 10 GiB and 20% free beyond the workloads'
+   512 MiB write cap. Eviction comes within about 75 s of applying the
+   workload. The clean test drive stays installed, idle and healthy, so the
+   fixture records a healthy disk. Check that the node's `DiskPressure` is
+   still `False` when you capture: these scenarios are evictions under no
+   node pressure.
 4. **Wait for the symptom** the scenario describes (crash loop, probe
-   failures, read-only remount, OOM kill). For read-path faults, drop the
+   failures, read-only remount, OOM kill, a pod `Evicted` for local
+   storage). For read-path faults, drop the
    page cache (`sync; echo 3 > /proc/sys/vm/drop_caches`) so reads reach the
    disk. Wait at least 2 minutes after injecting. For a `real-sata`
    scenario, also wait until the counter in its `expectSmart` has risen
@@ -428,19 +446,22 @@ capture, so its oldest snapshot is a day old with the same counts.
 | Drive degrades too fast (scarred drive starts growing pending/realloc) | Stable-defect fixtures become causal-looking; drive may die mid-block | Screen with a 48 h soak; capture the S block promptly; check counters before each capture; have a second scarred candidate |
 | Natural defects are unrepeatable | A scarred drive that changes cannot be "reset", and a retake will show different SMART | Capture the S block once, both variants back to back; keep the drive and its screening record; accept that a lost scarred drive means re-screening a new one |
 | Symptoms don't appear (bad sectors not under the workload, page cache hides reads) | Fixture records a fault with no symptom, which is a different scenario | Target LBAs from the workload's files; drop caches; check the symptom before capturing |
-| Exhaustion scenarios not raised | 4 more positive misses; with io-timeouts, 32 of the remaining 32 would have to be perfect | Resolve the exhaustion gap before capture |
+| Exhaustion workload not evicted (limit enforcement off, or a dedicated image filesystem) | 4 positives cannot be captured truthfully | `ephemeral-exhaustion.sh` refuses a dedicated image filesystem; confirm the pod is `Evicted` for local storage before capturing, and treat no eviction as a setup failure |
 | Power cut or reboot mid-block | Collector history lost; dm state lost; fs damage | UPS; after any reboot, restart the block's soak and reset |
 
 ## 6. Gaps for follow-up
 
-1. **Exhaustion cannot produce DiskPressure on the rig.** The scenarios
-   expect kubelet `DiskPressure` and evictions, but kubelet watches
-   `/var/lib/kubelet`'s filesystem, which may never sit on a test disk, and
-   `exhaustion-emptydir`'s emptyDir lives there. On the sacrificial mount the
-   only signal is ENOSPC, and `log-spammer` keeps running after it, so the
-   `k8s.storage_error` trigger (failing containers only) will not fire.
-   Decide: a workload that exits on ENOSPC, or a supported way to give
-   kubelet ephemeral storage its own sacrificial disk.
+1. **Resolved: exhaustion could not produce DiskPressure on the rig.** The
+   scenarios now use per-pod limits instead: `log-spam` overruns its
+   container's `ephemeral-storage` limit and `emptydir-filler` its emptyDir
+   `sizeLimit`, and the kubelet evicts each with no node pressure. That is
+   raised by `k8s.storage_eviction` (which now also matches the kubelet's
+   container-limit message). Writes are capped at 512 MiB on the boot disk,
+   and `ephemeral-exhaustion.sh` checks the node first. A dedicated
+   sacrificial kubelet disk was rejected: it would add a disk to every
+   fixture's SMART data and needs the kubelet reinstalled onto it. The
+   expected answer stays `causal`/`kubernetes`; see the comment above the
+   scenarios in `scenarios.yaml`.
 2. ~~**Capture does not check that SMART moved.**~~ *Resolved.* Each
    `real-sata` scenario declares `expectSmart` (`pending_sectors` for
    `pending-sectors`, `reallocated_sectors` for `degradation`), and capture

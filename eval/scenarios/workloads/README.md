@@ -5,6 +5,13 @@ Workloads run on the target node during a capture. Each pins itself to
 under `${TROPIS_MOUNT}` via a hostPath — so a fault on that disk reaches it
 the way a failing disk reaches real data.
 
+The exception is the two exhaustion workloads, `log-spam` and
+`emptydir-filler`. They are the fault: each overruns its own
+ephemeral-storage allowance (a container limit, an emptyDir `sizeLimit`)
+until the kubelet evicts it. That storage is the kubelet's, on the boot
+disk, so their writes are rate-limited and hard-capped, and they are applied
+only after `hack/inject/ephemeral-exhaustion.sh start` has checked the node.
+
 Apply with the variables substituted:
 
 ```sh

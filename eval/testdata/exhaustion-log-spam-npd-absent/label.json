@@ -2,6 +2,6 @@
   "scenarioId": "exhaustion-log-spam",
   "relationship": "causal",
   "rootCauseLayer": "kubernetes",
-  "faultType": "disk.exhaustion",
-  "notes": "SYNTHETIC development fixture, not captured from hardware. A pod writing unbounded logs to a hostPath fills the node's disk; the kubelet reports DiskPressure and evicts other pods. The disk hardware is healthy — the workload is the cause of the host-layer symptom."
+  "faultType": "storage.ephemeral_exhaustion",
+  "notes": "SYNTHETIC development fixture, not captured from hardware. A service's debug logging runs away, writing log files into its own container filesystem until it exceeds its ephemeral-storage limit and the kubelet evicts it. The disk hardware is healthy and the node is under no disk pressure; the workload is the cause of the storage symptom. A per-pod limit, rather than node DiskPressure, because the rig must never fill the kubelet's filesystem, on the boot disk."
 }
