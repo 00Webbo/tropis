@@ -107,6 +107,27 @@ func TestRules(t *testing.T) {
 			return schema.K8sCapture{Pods: []schema.RawJSON{podWith(t, corev1.PodStatus{Phase: corev1.PodFailed, Reason: "Evicted",
 				Message: `Usage of EmptyDir volume "scratch" exceeds the limit "1Gi".`})}}
 		}, []string{RuleStorageEviction}},
+		// The kubelet's three local-storage limit messages, verbatim from
+		// pkg/kubelet/eviction/helpers.go (emptyDirMessageFmt,
+		// podEphemeralStorageMessageFmt, containerEphemeralStorageMessageFmt).
+		// These evictions happen with no node pressure at all, so neither
+		// DiskPressure nor EvictionThresholdMet accompanies them.
+		{"pod evicted for its own emptyDir sizeLimit", func(t *testing.T) schema.K8sCapture {
+			return schema.K8sCapture{Pods: []schema.RawJSON{podWith(t, corev1.PodStatus{Phase: corev1.PodFailed, Reason: "Evicted",
+				Message: `Usage of EmptyDir volume "scratch" exceeds the limit "256Mi". `})}}
+		}, []string{RuleStorageEviction}},
+		{"pod evicted for its pod-level ephemeral-storage limit", func(t *testing.T) schema.K8sCapture {
+			return schema.K8sCapture{Pods: []schema.RawJSON{podWith(t, corev1.PodStatus{Phase: corev1.PodFailed, Reason: "Evicted",
+				Message: "Pod ephemeral local storage usage exceeds the total limit of containers 768Mi. "})}}
+		}, []string{RuleStorageEviction}},
+		{"pod evicted for a container's ephemeral-storage limit", func(t *testing.T) schema.K8sCapture {
+			return schema.K8sCapture{Pods: []schema.RawJSON{podWith(t, corev1.PodStatus{Phase: corev1.PodFailed, Reason: "Evicted",
+				Message: `Container app exceeded its local ephemeral storage limit "256Mi". `})}}
+		}, []string{RuleStorageEviction}},
+		{"Evicted pod event for a container's ephemeral-storage limit", func(t *testing.T) schema.K8sCapture {
+			return schema.K8sCapture{Events: []schema.RawJSON{event(t, "Pod", "Warning", "Evicted",
+				`Container app exceeded its local ephemeral storage limit "256Mi". `)}}
+		}, []string{RuleStorageEviction}},
 		{"pod evicted for memory", func(t *testing.T) schema.K8sCapture {
 			return schema.K8sCapture{Pods: []schema.RawJSON{podWith(t, corev1.PodStatus{Phase: corev1.PodFailed, Reason: "Evicted",
 				Message: "The node was low on resource: memory."})}}
