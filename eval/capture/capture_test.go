@@ -17,10 +17,15 @@ import (
 
 var at = time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
 
-type fakeHost struct{ raw schema.RawJSON }
+// fakeHost serves the capture's reading and the collector's earlier one.
+type fakeHost struct{ cur, prev map[string]schema.RawJSON }
 
 func (f fakeHost) Fetch(context.Context, string) (*schema.HostCapture, error) {
-	return &schema.HostCapture{SMART: map[string]schema.RawJSON{"/dev/sdb": f.raw}, CollectedAt: at}, nil
+	hc := &schema.HostCapture{SMART: f.cur, CollectedAt: at}
+	if f.prev != nil {
+		hc.Previous = &schema.HostSnapshot{SMART: f.prev, CollectedAt: at.Add(-2 * time.Hour)}
+	}
+	return hc, nil
 }
 
 type fakeK8s struct{ npd bool }
@@ -40,12 +45,18 @@ func (f fakeK8s) Collect(context.Context, string) (*schema.K8sCapture, error) {
 func (fakeK8s) NPDConditions(context.Context, string) ([]schema.RawJSON, error) { return nil, nil }
 func (fakeK8s) Nodes(context.Context) ([]string, error)                         { return nil, nil }
 
+// sources serves the sata-failing sample as the capture, and the same drive
+// before the fault (fewer pending and reallocated sectors) as the earlier
+// reading, so the SMART-visible scenarios see their counters grow.
 func sources(t *testing.T, npd bool) Sources {
-	raw, err := os.ReadFile(filepath.Join("..", "..", "pkg", "host", "smart", "testdata", "sata-failing.json"))
-	if err != nil {
-		t.Fatal(err)
+	return Sources{
+		Host: fakeHost{
+			cur:  map[string]schema.RawJSON{"/dev/sdb": reading(t, sampleSerial, 1544, 168, 96)},
+			prev: map[string]schema.RawJSON{"/dev/sdb": reading(t, sampleSerial, 1500, 0, 96)},
+		},
+		K8s: fakeK8s{npd: npd},
+		Now: func() time.Time { return at },
 	}
-	return Sources{Host: fakeHost{raw: raw}, K8s: fakeK8s{npd: npd}, Now: func() time.Time { return at }}
 }
 
 func inv(t *testing.T) *inventory.Inventory {
@@ -70,7 +81,8 @@ func scenario(t *testing.T, id string) scenarios.Scenario {
 
 func record(faultType, smartEffect string, ended bool) *InjectionRecord {
 	inj := &schema.Injection{Tool: "hdparm", Device: "/dev/sdb", StartedAt: at.Add(-time.Hour),
-		Params: map[string]string{"smartEffect": smartEffect}}
+		Params: map[string]string{"smartEffect": smartEffect,
+			"smartBefore": "reallocated=1500 pending=0 uncorrectable=96 serial=" + sampleSerial}}
 	if ended {
 		inj.EndedAt = at.Add(-time.Minute)
 	}

@@ -335,7 +335,9 @@ and do them all again with it present. For each scenario:
 1. **Reset.** `kubectl delete namespace tropis-eval --wait`; unmount, mkfs
    and remount as in 4.6. For a SMART-visible scenario, also restart the
    collector so its oldest snapshot is a pre-fault reading, and wait 2
-   minutes (the collector rate-limits reads to one a minute).
+   minutes (the collector rate-limits reads to one a minute). This is
+   required: capture compares the drive against that reading and refuses
+   without it.
 2. **Workload.** `export TROPIS_NODE=worker-02 TROPIS_MOUNT=/mnt/disks/sacrificial`
    then `envsubst < eval/scenarios/workloads/<workload>.yaml | kubectl apply -f -`
    and wait until it is in steady state.
@@ -345,7 +347,12 @@ and do them all again with it present. For each scenario:
 4. **Wait for the symptom** the scenario describes (crash loop, probe
    failures, read-only remount, OOM kill). For read-path faults, drop the
    page cache (`sync; echo 3 > /proc/sys/vm/drop_caches`) so reads reach the
-   disk. Wait at least 2 minutes after injecting.
+   disk. Wait at least 2 minutes after injecting. For a `real-sata`
+   scenario, also wait until the counter in its `expectSmart` has risen
+   (`smartctl -A` on the drive: pending, attribute 197, for
+   `pending-sectors`; reallocated, attribute 5, for `degradation`, which can
+   take several intervals). `degradation.sh start` itself returns only after
+   the worker's first step.
 5. **Baseline.** `kubectl -n monitoring port-forward svc/prometheus-operated 9090`
    and save `k8sgpt analyze` output to `k8sgpt.txt`.
 6. **Capture, while the fault is active:**
@@ -359,7 +366,12 @@ and do them all again with it present. For each scenario:
 
    Omit `--injection` for a scenario with no `inject`. A refusal
    ("nothing was written") means the fixture would be untrue: fix the setup,
-   don't force it.
+   don't force it. For a `real-sata` scenario capture finds the drive by
+   the serial in `fault.json` and refuses unless an `expectSmart` counter is
+   higher than in the collector's oldest reading; the error gives the
+   counters before and after. If the counter is still due to move (a
+   degradation interval has not passed), wait and capture again; if the
+   drive does not react, the drive cannot serve the scenario.
 7. **Stop** the fault: `hack/inject/<script> stop >> fault.json`. Keep the
    records with the run log (not in `eval/fixtures/`).
 
@@ -377,7 +389,8 @@ capture, so its oldest snapshot is a day old with the same counts.
 
 1. Check each fixture: `label.json`'s `injection.params` show the SMART
    change you expected (`smartBefore` → `smartAfterInjection` for
-   `real-sata`); `environment` names the right disk; there are 60
+   `real-sata`, degradation included; capture has already checked the
+   fixture's own readings); `environment` names the right disk; there are 60
    directories.
 2. Commit fixtures in batches, one commit per drive block, e.g.
    `test(eval): capture the clean-drive scenarios`, signed off. Do not
@@ -410,7 +423,7 @@ capture, so its oldest snapshot is a day old with the same counts.
 
 | Risk | Effect | Mitigation |
 |---|---|---|
-| Drive never reallocates under `degradation.sh` | 5 `real-sata` degradation scenarios (10 fixtures) cannot be captured truthfully | Buy 5–6 candidates; acceptance-test each; capture refuses nothing here (see Gaps), so check `smartAfter` yourself and do not capture if `reallocated` did not rise |
+| Drive never reallocates under `degradation.sh` | 5 `real-sata` degradation scenarios (10 fixtures) cannot be captured truthfully | Buy 5–6 candidates; acceptance-test each; capture refuses a degradation fixture unless `reallocated` rose on the drive |
 | Drive rejects WRITE UNCORRECTABLE or pending does not move | No `real-sata` pending scenarios on that drive | Acceptance test (4.6) before relying on a drive; keep a spare clean drive |
 | Drive degrades too fast (scarred drive starts growing pending/realloc) | Stable-defect fixtures become causal-looking; drive may die mid-block | Screen with a 48 h soak; capture the S block promptly; check counters before each capture; have a second scarred candidate |
 | Natural defects are unrepeatable | A scarred drive that changes cannot be "reset", and a retake will show different SMART | Capture the S block once, both variants back to back; keep the drive and its screening record; accept that a lost scarred drive means re-screening a new one |
@@ -428,11 +441,14 @@ capture, so its oldest snapshot is a day old with the same counts.
    `k8s.storage_error` trigger (failing containers only) will not fire.
    Decide: a workload that exits on ENOSPC, or a supported way to give
    kubelet ephemeral storage its own sacrificial disk.
-2. **Capture does not check that SMART moved.** `smartEffect=real` means
-   only that hdparm was used. A `real-sata` capture should refuse unless
-   the record shows the counters the scenario expects actually changed
-   (pending for `pending-sectors`, reallocated for `degradation`); the
-   degradation start record carries no after-reading at all.
+2. ~~**Capture does not check that SMART moved.**~~ *Resolved.* Each
+   `real-sata` scenario declares `expectSmart` (`pending_sectors` for
+   `pending-sectors`, `reallocated_sectors` for `degradation`), and capture
+   refuses the fixture unless one of those counters is higher in its own
+   reading than in the collector's earlier one (`HostCapture.Previous`), on
+   the drive whose serial the injection record names (snapshots now end in
+   `serial=`), wherever its device path moved. `degradation.sh start` now
+   waits for the first step and records `smartAfterInjection`.
 3. **Stable defects are not verified.** The five `realloc-stable` scenarios
    have no `hardware` tag and no check that the disk has non-zero,
    unchanged reallocated sectors over ≥ 24 h of collector history. A clean

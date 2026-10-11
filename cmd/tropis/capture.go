@@ -32,6 +32,11 @@ Captures the node's host and Kubernetes state through the same collectors the
 sweep uses, and writes <out>/<scenario>-<variant>/fixture.json and label.json.
 Run it while the fault is active and its symptoms are present: start the
 injection, wait, capture, then stop. See hack/inject/README.md.
+
+For a real-sata scenario it refuses unless one of the scenario's expectSmart
+counters is higher on the injected drive (found by the serial in the
+injection record) than in the collector's earlier reading: restart the
+collector before injecting so that reading is pre-fault.
 `
 
 func runCapture(args []string, stdout, stderr io.Writer) int {
