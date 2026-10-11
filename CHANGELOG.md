@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/00Webbo/tropis/compare/v0.2.0...v0.3.0) (2026-10-11)
+
+
+### Features
+
+* **eval:** add a per-case --timeout flag ([6c34b68](https://github.com/00Webbo/tropis/commit/6c34b689b724f6ab62f30426971bcaf9a636fcf6))
+* **local:** control model thinking ([b1a4f53](https://github.com/00Webbo/tropis/commit/b1a4f53926bb3bd6b9cc3a6fd2e14489354264e8))
+
+
+### Bug fixes
+
+* **local:** reject a think setting on the openai protocol ([ffc1666](https://github.com/00Webbo/tropis/commit/ffc16662b7661f5f7c0033bc8e8c4e215b94da0d))
+
 ## [0.2.0](https://github.com/00Webbo/tropis/compare/v0.1.1...v0.2.0) (2026-10-07)
 
 
