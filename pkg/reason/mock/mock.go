@@ -40,7 +40,10 @@ var (
 	// DiskPressure is read from the node condition, whose status says whether
 	// it holds; matching the word in free text would read the event
 	// "NodeHasNoDiskPressure" as exhaustion.
-	exhausted = regexp.MustCompile(`(?i)no space left on device|low on resource: ephemeral-storage|evictionthresholdmet`)
+	// The last three are the kubelet's evictions for a pod overrunning its
+	// own local storage allowance (pkg/kubelet/eviction/helpers.go).
+	exhausted = regexp.MustCompile(`(?i)no space left on device|low on resource: ephemeral-storage|evictionthresholdmet|` +
+		`usage of emptydir volume .* exceeds the limit|ephemeral local storage usage exceeds|exceeded its local ephemeral storage limit`)
 )
 
 // Analyze applies the heuristic and returns a validated verdict.

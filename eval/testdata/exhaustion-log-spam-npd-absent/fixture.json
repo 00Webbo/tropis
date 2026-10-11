@@ -333,10 +333,10 @@
           },
           {
             "type": "DiskPressure",
-            "status": "True",
+            "status": "False",
             "lastHeartbeatTime": null,
             "lastTransitionTime": "2026-09-01T17:30:00Z",
-            "reason": "KubeletHasDiskPressure"
+            "reason": "KubeletHasNoDiskPressure"
           },
           {
             "type": "MemoryPressure",
@@ -370,28 +370,22 @@
         "kind": "Pod",
         "apiVersion": "v1",
         "metadata": {
-          "name": "log-spammer",
+          "name": "session-cache",
           "namespace": "tropis-eval",
-          "uid": "pod-log-spammer"
+          "uid": "pod-session-cache"
         },
         "spec": {
-          "volumes": [
-            {
-              "name": "data",
-              "hostPath": {
-                "path": "/mnt/disks/sacrificial/spool"
-              }
-            }
-          ],
           "containers": [
             {
-              "name": "spam",
+              "name": "app",
               "resources": {
                 "limits": {
+                  "ephemeral-storage": "256Mi",
                   "memory": "512Mi"
                 },
                 "requests": {
                   "cpu": "100m",
+                  "ephemeral-storage": "64Mi",
                   "memory": "64Mi"
                 }
               }
@@ -400,18 +394,23 @@
           "nodeName": "worker-02"
         },
         "status": {
-          "phase": "Running",
+          "phase": "Failed",
+          "message": "Container app exceeded its local ephemeral storage limit \"256Mi\". ",
+          "reason": "Evicted",
           "startTime": "2026-09-01T16:00:00Z",
           "containerStatuses": [
             {
-              "name": "spam",
+              "name": "app",
               "state": {
-                "running": {
-                  "startedAt": "2026-09-01T16:00:00Z"
+                "terminated": {
+                  "exitCode": 137,
+                  "reason": "Error",
+                  "startedAt": null,
+                  "finishedAt": "2026-09-01T17:58:00Z"
                 }
               },
               "lastState": {},
-              "ready": true,
+              "ready": false,
               "restartCount": 0,
               "image": "",
               "imageID": ""
@@ -445,9 +444,23 @@
           "nodeName": "worker-02"
         },
         "status": {
-          "phase": "Failed",
-          "reason": "Evicted",
-          "startTime": "2026-09-01T16:00:00Z"
+          "phase": "Running",
+          "startTime": "2026-09-01T16:00:00Z",
+          "containerStatuses": [
+            {
+              "name": "web",
+              "state": {
+                "running": {
+                  "startedAt": "2026-09-01T16:00:00Z"
+                }
+              },
+              "lastState": {},
+              "ready": true,
+              "restartCount": 0,
+              "image": "",
+              "imageID": ""
+            }
+          ]
         }
       }
     ],
@@ -456,40 +469,17 @@
         "kind": "Event",
         "apiVersion": "v1",
         "metadata": {
-          "name": "worker-02.exhaustion-log-spam-threshold",
-          "namespace": "default",
-          "uid": "event-exhaustion-log-spam-threshold"
-        },
-        "involvedObject": {
-          "kind": "Node",
-          "name": "worker-02"
-        },
-        "reason": "EvictionThresholdMet",
-        "message": "Attempting to reclaim ephemeral-storage",
-        "source": {},
-        "firstTimestamp": null,
-        "lastTimestamp": "2026-09-01T17:57:00Z",
-        "count": 3,
-        "type": "Warning",
-        "eventTime": null,
-        "reportingComponent": "",
-        "reportingInstance": ""
-      },
-      {
-        "kind": "Event",
-        "apiVersion": "v1",
-        "metadata": {
-          "name": "frontend.exhaustion-log-spam-evicted",
+          "name": "session-cache.exhaustion-log-spam-evicted",
           "namespace": "tropis-eval",
           "uid": "event-exhaustion-log-spam-evicted"
         },
         "involvedObject": {
           "kind": "Pod",
           "namespace": "tropis-eval",
-          "name": "frontend"
+          "name": "session-cache"
         },
         "reason": "Evicted",
-        "message": "The node was low on resource: ephemeral-storage. Threshold quantity: 10%, available: 0.",
+        "message": "Container app exceeded its local ephemeral storage limit \"256Mi\". ",
         "source": {},
         "firstTimestamp": null,
         "lastTimestamp": "2026-09-01T17:58:00Z",
@@ -503,11 +493,7 @@
     "collectedAt": "2026-09-01T18:00:00Z"
   },
   "baseline": {
-    "prometheusAlerts": [
-      "NodeFilesystemAlmostOutOfSpace",
-      "KubeletDiskPressure"
-    ],
-    "k8sgptOutput": "Pod tropis-eval/frontend: The node was low on resource: ephemeral-storage."
+    "k8sgptOutput": "Pod tropis-eval/session-cache: Container app exceeded its local ephemeral storage limit \"256Mi\"."
   },
   "synthetic": true
 }

@@ -1,0 +1,73 @@
+# A service whose debug logging runs away, writing log files into its own
+# container filesystem until it overruns its ephemeral-storage limit and the
+# kubelet evicts it ("Container app exceeded its local ephemeral storage
+# limit"). Beside it, a healthy bystander. Nothing here touches the test
+# disk: ephemeral storage lives on the kubelet's and the runtime's
+# filesystem, which on the rig is the boot disk.
+#
+# The workload is the fault, so apply it only after
+# hack/inject/ephemeral-exhaustion.sh start has checked the node and opened
+# the record. Writes are rate-limited (4 MiB/s) and hard-capped at 512 MiB,
+# so even if the kubelet never evicted, the boot disk would absorb at most
+# that much.
+#
+# The sidecar's own limit makes the pod's total limit (768Mi) larger than
+# anything the app can write, so the kubelet's per-container check is the
+# one that fires, not the pod-level one.
+#
+# The scripts use $((i)), never $i: envsubst would replace $i with nothing.
+apiVersion: v1
+kind: Namespace
+metadata: {name: tropis-eval}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: session-cache
+  namespace: tropis-eval
+  labels: {app: session-cache, tropis.io/eval: "true"}
+spec:
+  nodeSelector: {kubernetes.io/hostname: "${TROPIS_NODE}"}
+  containers:
+    - name: app
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - |
+          mkdir -p /var/log/app
+          echo "session-cache starting, log level DEBUG, logging to /var/log/app/debug.log"
+          i=0
+          while [ "$((i))" -lt 128 ]; do
+            yes "$(date -u +%Y-%m-%dT%H:%M:%SZ) DEBUG cache refresh key=session:$((i)) hit=false ttl=300 bytes=4096" |
+              head -c 4194304 >> /var/log/app/debug.log
+            i=$((i + 1))
+            [ $((i % 16)) -eq 0 ] && echo "debug.log is now $((i * 4)) MiB"
+            sleep 1
+          done
+          echo "debug.log reached $((i * 4)) MiB; no longer writing"
+          exec sleep 2147483647
+      resources:
+        requests: {cpu: 50m, memory: 16Mi, ephemeral-storage: 64Mi}
+        limits: {memory: 64Mi, ephemeral-storage: 256Mi}
+    - name: metrics
+      image: busybox:1.36
+      command: [sh, -c, "mkdir -p /www && echo ok > /www/healthz && exec httpd -f -p 9100 -h /www"]
+      resources:
+        requests: {cpu: 10m, memory: 8Mi, ephemeral-storage: 16Mi}
+        limits: {memory: 32Mi, ephemeral-storage: 512Mi}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: tropis-eval
+  labels: {app: frontend, tropis.io/eval: "true"}
+spec:
+  nodeSelector: {kubernetes.io/hostname: "${TROPIS_NODE}"}
+  containers:
+    - name: web
+      image: nginx:1.27
+      resources:
+        requests: {cpu: 50m, memory: 32Mi, ephemeral-storage: 100Mi}
+        limits: {memory: 128Mi, ephemeral-storage: 500Mi}

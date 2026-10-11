@@ -226,26 +226,50 @@ scenarios:
 
   # --- Causal, Kubernetes layer -----------------------------------------------
 
+  # Both are produced by the workload overrunning its own ephemeral-storage
+  # allowance, so the kubelet evicts it for local storage while the node is
+  # under no pressure. Node-level DiskPressure cannot be produced safely on
+  # the rig: the kubelet watches only its own root and the runtime's
+  # filesystems, which sit on the boot disk, and filling those is what the
+  # safety rules forbid. A dedicated sacrificial kubelet disk was rejected:
+  # it would add a disk to every fixture's SMART data, needs the kubelet
+  # reinstalled onto it, and still misses container logs and writable
+  # layers. Per-pod limits are a stock kubelet feature, the eviction is
+  # deterministic, the writes are capped far below the boot disk's headroom,
+  # and limit evictions are the common real-world form of this fault.
+  #
+  # Expected stays causal/kubernetes: the symptom is storage (an eviction
+  # for local storage), the disk is healthy, and the cause is the workload.
+  # There is no host anomaly to be coincidental with, and the kubelet's own
+  # message says what happened, so insufficient_evidence would be wrong too.
+
   - id: exhaustion-log-spam
     description: >
-      A pod writing unbounded logs to a hostPath fills the node's disk; the
-      kubelet reports DiskPressure and evicts other pods. The disk hardware is
-      healthy — the workload is the cause of the host-layer symptom.
-    faultType: disk.exhaustion
-    inject: {script: disk-exhaustion.sh}
-    workload: disk-filler
+      A service's debug logging runs away, writing log files into its own
+      container filesystem until it exceeds its ephemeral-storage limit and
+      the kubelet evicts it. The disk hardware is healthy and the node is
+      under no disk pressure; the workload is the cause of the storage
+      symptom. A per-pod limit, rather than node DiskPressure, because the
+      rig must never fill the kubelet's filesystem, on the boot disk.
+    faultType: storage.ephemeral_exhaustion
+    inject: {script: ephemeral-exhaustion.sh}
+    workload: log-spam
     expected: {relationship: causal, rootCauseLayer: kubernetes}
-    synthetic: {smart: healthy, workload: evictions}
+    synthetic: {smart: healthy, workload: container-storage-eviction}
 
   - id: exhaustion-emptydir
     description: >
-      An emptyDir on the target filesystem is filled by a runaway job,
-      producing DiskPressure and ephemeral-storage evictions.
-    faultType: disk.exhaustion
-    inject: {script: disk-exhaustion.sh}
-    workload: disk-filler
+      A runaway report job fills its emptyDir scratch volume past the
+      volume's sizeLimit and the kubelet evicts the pod. The disk hardware
+      is healthy and the node is under no disk pressure; the workload is the
+      cause of the storage symptom. A sizeLimit, rather than node
+      DiskPressure, because the rig cannot safely fill the kubelet's
+      filesystem, on the boot disk.
+    faultType: storage.ephemeral_exhaustion
+    inject: {script: ephemeral-exhaustion.sh}
+    workload: emptydir-filler
     expected: {relationship: causal, rootCauseLayer: kubernetes}
-    synthetic: {smart: healthy, workload: evictions}
+    synthetic: {smart: healthy, workload: emptydir-eviction}
 
   # --- Negative controls: coincidental -----------------------------------------
 
