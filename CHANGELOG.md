@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.1](https://github.com/00Webbo/tropis/compare/v0.3.0...v0.3.1) (2026-10-11)
+
+
+### Bug fixes
+
+* **capture:** refuse a fixture whose SMART did not change ([8c8d5b9](https://github.com/00Webbo/tropis/commit/8c8d5b949443cb146476ddca670a4a3e4b652bc6))
+* **prefilter:** raise on a container's ephemeral-storage limit eviction ([620b4f6](https://github.com/00Webbo/tropis/commit/620b4f679ccc07b317fa8544feecf87b3c7de734))
+* **scenarios:** make disk exhaustion reproducible on the rig ([0473b75](https://github.com/00Webbo/tropis/commit/0473b75a9e12d32c888fa28a57baa79a5010b1f8))
+
 ## [0.3.0](https://github.com/00Webbo/tropis/compare/v0.2.0...v0.3.0) (2026-10-11)
 
 
