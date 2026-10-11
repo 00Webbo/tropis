@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/00Webbo/tropis/compare/v0.3.1...v0.3.2) (2026-10-11)
+
+
+### Bug fixes
+
+* **capture:** refuse a stable-defect fixture without stable defects ([a04e2b3](https://github.com/00Webbo/tropis/commit/a04e2b30153315ead9009fb2d22c162a9af5e2b8))
+
 ## [0.3.1](https://github.com/00Webbo/tropis/compare/v0.3.0...v0.3.1) (2026-10-11)
 
 
