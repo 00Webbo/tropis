@@ -6,7 +6,7 @@ Tropis ships its accuracy numbers, and this directory is how they are made.
 |---|---|
 | `scenarios/scenarios.yaml` | The capture plan: 30 scenarios — 20 injected faults, 6 negative controls, 4 genuinely undecidable — each with its injection, workload and ground truth |
 | `scenarios/workloads/` | The workloads run on the target node during a capture |
-| `fixtures/` | **The real corpus**, captured from hardware. Empty until the capture run |
+| `fixtures/` | **The real corpus**, captured from hardware. Empty until the capture run; see [docs/capture-rig.md](../docs/capture-rig.md) for the rig and run book |
 | `testdata/` | The synthetic development corpus. **Never publishable** |
 | `runner/` | Replays a corpus, withholding labels, and scores it |
 | `report/` | Renders results for people |

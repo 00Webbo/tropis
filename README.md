@@ -155,7 +155,8 @@ withheld from the agent at analysis time, in randomised order, each scenario
 run both with and without NPD present.
 
 **Published numbers require the capture run on real hardware, which has not
-happened yet.** This section will carry the results table when it does. The
+happened yet.** This section will carry the results table when it does; the
+rig and run book are planned in [docs/capture-rig.md](docs/capture-rig.md). The
 bar fixed in advance — before any number was known — is ≥80% of ≥20 injected
 faults both raised by the pre-filter and given the correct root cause, with a
 false-correlation rate under 10% on negative controls.

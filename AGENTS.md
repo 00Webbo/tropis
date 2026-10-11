@@ -94,6 +94,7 @@ test guards a rule, do not weaken the test to make a change pass.
 | `eval/` | Scenarios, dev corpus, runner, report, capture (see `eval/README.md`) |
 | `hack/inject`, `hack/npd-plugin` | Fault injection; NPD plugin wrapper |
 | `deploy/helm/tropis` | The chart |
+| `docs/capture-rig.md` | Capture rig hardware, scenario coverage and run book |
 
 Background: `Tropis_Findings_and_Project_Plan.md` explains why;
 `Tropis_Build_Brief.md` says what to build, and wins where they disagree.
