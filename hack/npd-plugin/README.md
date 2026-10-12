@@ -23,8 +23,11 @@ On each node, alongside NPD:
 3. Add `smart-plugin-monitor.json` to NPD's
    `--config.custom-plugin-monitor` list.
 
-The plugin needs the same access as the Tropis collector: `SYS_RAWIO` and
-read access to the block devices. See [SECURITY.md](../../SECURITY.md).
+The plugin needs the same access as the Tropis collector. Run in a
+container, as NPD usually is, that means a privileged container, or
+`SYS_RAWIO` plus the disks a device plugin grants: `SYS_RAWIO` alone is not
+enough, because the device cgroup still blocks the raw block devices. See
+[SECURITY.md](../../SECURITY.md), "Privileges required".
 
 Growth rules (reallocated or uncorrectable counts rising) keep the previous
 reading in `TROPIS_STATE_DIR`, default `/var/lib/tropis`. Without a writable

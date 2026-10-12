@@ -68,7 +68,8 @@ In both modes the collector:
 - mounts no host filesystem;
 - has a read-only root filesystem;
 - holds **no** Kubernetes API permissions and mounts no service account token;
-- serves one read-only HTTP endpoint (`/v1/smart`) inside the cluster.
+- serves read-only HTTP inside the cluster: the SMART readings (`/v1/smart`)
+  and a liveness check (`/healthz`).
 
 If a future signal needs more access than this, it will be documented here
 with its justification before it ships, and it will be independently
@@ -154,8 +155,11 @@ make.
 
 ## Supply chain
 
-Container images are signed, and an SBOM is published with each release.
-Verification instructions ship with the first tagged release.
+Each release's container image, Helm chart and `checksums.txt` (covering the
+CLI archives) are signed keylessly with cosign from the release workflow, and
+the image carries an SBOM and SLSA provenance. Each release's notes give the
+`cosign verify` commands for the image and the checksums; the chart verifies
+the same way as the image, as `ghcr.io/00webbo/charts/tropis:<version>`.
 
 ## Supported versions
 

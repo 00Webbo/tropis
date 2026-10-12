@@ -23,8 +23,12 @@ See the verdicts:
   kubectl get nodehealthreports
   kubectl get nhr -l tropis.io/relationship=causal
 
-Analyse one node on demand:
+Run a sweep now:
 
   kubectl -n {{ .Release.Namespace }} create job --from=cronjob/{{ include "tropis.fullname" . }}-sweep tropis-manual
+
+Analyse one node on demand, with the CLI from a GitHub Release:
+
+  tropis analyze <node> --namespace {{ .Release.Namespace }}
 
 Tropis is read-only. It never cordons, drains or restarts anything.

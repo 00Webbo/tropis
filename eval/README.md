@@ -25,10 +25,9 @@ tropis eval --corpus eval/testdata --backend mock
 tropis eval --corpus eval/fixtures --publishable --inventory rig.yaml
 
 # Against a local model through Ollama. A small GPU can be slow, so allow
-# more than the default five minutes per case. A thinking model's hidden
-# reasoning shares the context window with the verdict: if output is
-# truncated, raise TROPIS_CONTEXT_TOKENS. --think false is much faster but
-# made the model overconfident and more prone to false causal claims.
+# more than the default five minutes per case. For the context window
+# (TROPIS_CONTEXT_TOKENS) and --think, see the `backend` settings in
+# deploy/helm/tropis/values.yaml and the Ollama note in AGENTS.md.
 tropis eval --corpus eval/fixtures --backend local --base-url http://localhost:11434 \
   --model qwen3.5:9b --timeout 10m --concurrency 1
 ```
