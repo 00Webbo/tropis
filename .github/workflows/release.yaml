@@ -39,7 +39,23 @@ jobs:
       release_created: ${{ steps.rp.outputs.release_created }}
       tag: ${{ steps.rp.outputs.tag_name }}
     steps:
+      # release-please acts on main as it is now, not on the commit CI
+      # passed. If main has moved on, that newer commit's own CI run will
+      # trigger this workflow once it passes; skip so a release is never cut
+      # from a commit whose CI has not finished.
+      - id: current
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTED: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          if [ "$main" != "$TESTED" ]; then
+            echo "::notice::main is at $main, CI passed for $TESTED; leaving the release to main's own CI run"
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+          fi
       - id: rp
+        if: steps.current.outputs.stale != 'true'
         uses: googleapis/release-please-action@v5
         with:
           config-file: release-please-config.json
