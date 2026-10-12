@@ -1,14 +1,11 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/00Webbo/tropis/eval/capture"
@@ -26,10 +23,12 @@ const captureUsage = `usage: tropis capture --scenario <id> --variant npd-presen
                       --node <name> --inventory <file> [--disk <id>]
                       [--injection <record.json>]
                       [--prometheus <url> | --alerts-file <file>] [--k8sgpt-file <file>]
-                      [--out eval/fixtures] [--force]
+                      [--corpus eval/fixtures] [--force] [--timeout 5m]
 
 Captures the node's host and Kubernetes state through the same collectors the
-sweep uses, and writes <out>/<scenario>-<variant>/fixture.json and label.json.
+sweep uses, and writes <corpus>/<scenario>-<variant>/fixture.json and
+label.json. --out is a deprecated alias for --corpus. --timeout bounds the
+whole capture.
 Run it while the fault is active and its symptoms are present: start the
 injection, wait, capture, then stop. See hack/inject/README.md.
 
@@ -55,9 +54,10 @@ func runCapture(args []string, stdout, stderr io.Writer) int {
 	alertsFile := fs.String("alerts-file", "", "file of firing alert names, one per line, for the baseline")
 	k8sgptFile := fs.String("k8sgpt-file", "", "k8sgpt's output for the same node, for the baseline")
 	notes := fs.String("baseline-notes", "", "free-text notes on incumbent tooling behaviour")
-	out := fs.String("out", "eval/fixtures", "corpus directory")
+	corpus := fs.String("corpus", "eval/fixtures", "corpus directory, as eval --corpus reads it")
+	fs.StringVar(corpus, "out", "eval/fixtures", "deprecated: use --corpus")
 	force := fs.Bool("force", false, "replace an existing capture")
-	timeout := fs.Duration("timeout", 5*time.Minute, "overall timeout")
+	timeout := fs.Duration("timeout", 5*time.Minute, "overall timeout for the capture")
 	var cf clusterFlags
 	cf.register(fs)
 	if err := fs.Parse(args); err != nil {
@@ -90,9 +90,7 @@ func runCapture(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-	ctx, cancel := context.WithTimeout(ctx, *timeout)
+	ctx, cancel := signalContext(*timeout)
 	defer cancel()
 
 	baseline := schema.Baseline{Notes: *notes}
@@ -131,7 +129,7 @@ func runCapture(args []string, stdout, stderr io.Writer) int {
 		Inventory: inv,
 		Injection: rec,
 		Baseline:  baseline,
-		OutDir:    *out,
+		OutDir:    *corpus,
 		Force:     *force,
 	})
 	if err != nil {

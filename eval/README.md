@@ -11,7 +11,7 @@ Tropis ships its accuracy numbers, and this directory is how they are made.
 | `runner/` | Replays a corpus, withholding labels, and scores it |
 | `report/` | Renders results for people |
 | `devcorpus/` | Generates `testdata/` from the scenario definitions |
-| `capture/` | `tropis capture`: turns a live node, mid-fault, into a fixture and label, refusing any that would misdescribe itself — including a `real-sata` scenario whose drive (matched by serial) shows none of its `expectSmart` counters grown since the collector's earlier reading, or a `scarred-sata` scenario whose drive (`--disk`) does not show reallocated sectors above zero and unchanged, with pending 0 |
+| `capture/` | `tropis capture`: turns a live node, mid-fault, into a fixture and label, refusing any that would misdescribe itself — including a `real-sata` scenario whose drive (matched by serial) shows none of its `expectSmart` counters grown since the collector's earlier reading, or a `scarred-sata` scenario whose drive (`--disk`) does not show reallocated sectors above zero and unchanged, with pending 0. It writes into `--corpus` (default `eval/fixtures`), as `eval --corpus` reads it |
 
 ## Running
 

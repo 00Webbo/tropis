@@ -1,13 +1,11 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"time"
 
@@ -32,7 +30,10 @@ func (b *backendFlags) register(fs *flag.FlagSet) {
 	fs.StringVar(&b.effort, "effort", "", "anthropic effort level (default from TROPIS_EFFORT)")
 }
 
-func (b *backendFlags) config() (backend.Config, error) {
+// config builds the backend configuration. The backend's own request timeout
+// follows the command's --timeout, so a longer one is not silently cut short
+// by the backend's default; one set explicitly (TROPIS_TIMEOUT) is kept.
+func (b *backendFlags) config(timeout time.Duration) (backend.Config, error) {
 	cfg, err := backend.FromEnv()
 	if err != nil {
 		return cfg, err
@@ -45,17 +46,10 @@ func (b *backendFlags) config() (backend.Config, error) {
 			*dst = src
 		}
 	}
-	return cfg, nil
-}
-
-// withCaseTimeout makes the backend's own request timeout at least the
-// per-case timeout, so a longer --timeout is not silently cut short by the
-// backend's default. A timeout set explicitly (TROPIS_TIMEOUT) is kept.
-func withCaseTimeout(cfg backend.Config, perCase time.Duration) backend.Config {
 	if cfg.Timeout == 0 {
-		cfg.Timeout = perCase
+		cfg.Timeout = timeout
 	}
-	return cfg
+	return cfg, nil
 }
 
 func init() {
@@ -72,7 +66,7 @@ func runEval(args []string, stdout, stderr io.Writer) int {
 	inv := fs.String("inventory", "", "rig inventory, to describe the rig in the results")
 	concurrency := fs.Int("concurrency", 4, "parallel analyses")
 	quiet := fs.Bool("quiet", false, "no per-case progress")
-	timeout := fs.Duration("timeout", runner.DefaultTimeout, "per-case analysis timeout; also the backend request timeout unless TROPIS_TIMEOUT sets one")
+	timeout := fs.Duration("timeout", runner.DefaultTimeout, "timeout per case, not for the whole run; also the backend request timeout unless TROPIS_TIMEOUT sets one")
 	var bf backendFlags
 	bf.register(fs)
 	if err := fs.Parse(args); err != nil {
@@ -82,11 +76,10 @@ func runEval(args []string, stdout, stderr io.Writer) int {
 		return fail(stderr, "--timeout must be positive, got %s", *timeout)
 	}
 
-	cfg, err := bf.config()
+	cfg, err := bf.config(*timeout)
 	if err != nil {
 		return fail(stderr, "%v", err)
 	}
-	cfg = withCaseTimeout(cfg, *timeout)
 	b, err := backend.New(cfg)
 	if err != nil {
 		return fail(stderr, "%v", err)
@@ -111,8 +104,8 @@ func runEval(args []string, stdout, stderr io.Writer) int {
 		rc.Inventory = i
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
+	ctx, cancel := signalContext(0) // --timeout is per case, applied by the runner
+	defer cancel()
 	res, err := runner.Run(ctx, rc)
 	if err != nil {
 		return fail(stderr, "%v", err)

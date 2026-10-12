@@ -384,7 +384,9 @@ and do them all again with it present. For each scenario:
      --k8sgpt-file k8sgpt.txt
    ```
 
-   Omit `--injection` for a scenario with no `inject`. A refusal
+   Capture writes into `--corpus` (default `eval/fixtures`, the directory
+   `tropis eval --corpus` reads; `--out` is a deprecated alias). Omit
+   `--injection` for a scenario with no `inject`. A refusal
    ("nothing was written") means the fixture would be untrue: fix the setup,
    don't force it. For a `real-sata` scenario capture finds the drive by
    the serial in `fault.json` and refuses unless an `expectSmart` counter is
