@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/00Webbo/tropis/pkg/host/smart"
+	"github.com/00Webbo/tropis/pkg/k8s/triggers"
 	"github.com/00Webbo/tropis/pkg/redact"
 	"github.com/00Webbo/tropis/pkg/schema"
 )
@@ -447,7 +448,7 @@ func (in *AnalysisInput) buildK8s(kc schema.K8sCapture, r *redact.Redactor) (K8s
 		in.addRef(ref, "kubelet-events", at, 0)
 		doc.Events = append(doc.Events, EventDoc{
 			Ref:     ref,
-			Time:    eventTime(e).UTC(),
+			Time:    triggers.EventTime(e).UTC(),
 			Type:    e.Type,
 			Reason:  e.Reason,
 			Object:  e.InvolvedObject.Kind + " " + strings.TrimPrefix(e.InvolvedObject.Namespace+"/"+e.InvolvedObject.Name, "/"),
@@ -480,15 +481,6 @@ func isKubeletCondition(t corev1.NodeConditionType) bool {
 		return true
 	}
 	return false
-}
-
-func eventTime(e corev1.Event) time.Time {
-	for _, t := range []time.Time{e.LastTimestamp.Time, e.EventTime.Time, e.FirstTimestamp.Time, e.CreationTimestamp.Time} {
-		if !t.IsZero() {
-			return t
-		}
-	}
-	return time.Time{}
 }
 
 func podDoc(ref string, p *corev1.Pod) PodDoc {
