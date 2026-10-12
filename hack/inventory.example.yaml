@@ -64,6 +64,7 @@ nodes:
       - id: sacrificial
         device: /dev/sdb
         byId: /dev/disk/by-id/ata-EXAMPLE_HDD_2TB_SERIAL0001
+        serial: SERIAL0001
         model: Example HDD 2TB
         transport: sata
         destructible: true
