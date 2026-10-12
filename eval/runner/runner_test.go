@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/00Webbo/tropis/eval/scenarios"
 	"github.com/00Webbo/tropis/pkg/fixture"
 	"github.com/00Webbo/tropis/pkg/reason"
 	"github.com/00Webbo/tropis/pkg/reason/mock"
@@ -16,6 +17,24 @@ import (
 )
 
 var devCorpus = filepath.Join("..", "testdata")
+
+// corpusCounts derives the dev corpus's size from the scenarios, which it
+// holds in two NPD variants each.
+func corpusCounts(t *testing.T) (cases, causal, coincidental int) {
+	all, err := scenarios.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range all {
+		switch s.Expected.Relationship {
+		case schema.RelationshipCausal:
+			causal += 2
+		case schema.RelationshipCoincidental:
+			coincidental += 2
+		}
+	}
+	return 2 * len(all), causal, coincidental
+}
 
 // spyBackend wraps the mock, recording every input it sees and when.
 type spyBackend struct {
@@ -92,7 +111,6 @@ func TestLabelsAreWithheldFromAnalysis(t *testing.T) {
 	}
 
 	var events []string
-	var mu sync.Mutex
 	spy := &spyBackend{events: &events, inner: mock.New()}
 	res, err := Run(context.Background(), Config{
 		Corpus:      corpus,
@@ -100,9 +118,9 @@ func TestLabelsAreWithheldFromAnalysis(t *testing.T) {
 		Seed:        42,
 		Concurrency: 8,
 		Labels: func(c fixture.Case) (*schema.Label, error) {
-			mu.Lock()
+			spy.mu.Lock()
 			events = append(events, "label")
-			mu.Unlock()
+			spy.mu.Unlock()
 			return fixture.LoadLabelFor(c)
 		},
 	})
@@ -152,8 +170,9 @@ func TestRunDevCorpus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Cases) != 60 {
-		t.Errorf("cases = %d", len(res.Cases))
+	cases, causal, coincidental := corpusCounts(t)
+	if len(res.Cases) != cases {
+		t.Errorf("cases = %d, want %d", len(res.Cases), cases)
 	}
 	if !res.Synthetic {
 		t.Error("the dev corpus must be flagged synthetic")
@@ -168,7 +187,7 @@ func TestRunDevCorpus(t *testing.T) {
 		t.Errorf("warnings = %v", res.Warnings)
 	}
 	m := res.Metrics
-	if m.Positives != 40 || m.NegativeControls != 12 {
+	if m.Positives != causal || m.NegativeControls != coincidental {
 		t.Errorf("positives %d, negative controls %d", m.Positives, m.NegativeControls)
 	}
 	// The mock must exercise every answer, or the eval of it proves nothing.
@@ -234,11 +253,12 @@ func TestErrorsAreScoredAsWrong(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	cases, causal, _ := corpusCounts(t)
 	m := res.Metrics
-	if m.RootCauseAccuracy != 0 || m.Errors[ErrKindMalformed] != 60 {
+	if m.RootCauseAccuracy != 0 || m.Errors[ErrKindMalformed] != cases {
 		t.Errorf("accuracy %v, errors %v", m.RootCauseAccuracy, m.Errors)
 	}
-	if m.Confusion["causal"][predictedError] != 40 {
+	if m.Confusion["causal"][predictedError] != causal {
 		t.Errorf("confusion = %v", m.Confusion)
 	}
 	joined := strings.Join(res.Warnings, " ")

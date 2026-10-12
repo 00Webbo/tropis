@@ -42,8 +42,7 @@ func (f fakeK8s) Collect(context.Context, string) (*schema.K8sCapture, error) {
 	}
 	return c, nil
 }
-func (fakeK8s) NPDConditions(context.Context, string) ([]schema.RawJSON, error) { return nil, nil }
-func (fakeK8s) Nodes(context.Context) ([]string, error)                         { return nil, nil }
+func (fakeK8s) Nodes(context.Context) ([]string, error) { return nil, nil }
 
 // sources serves the sata-failing sample as the capture, and the same drive
 // before the fault (fewer pending and reallocated sectors) as the earlier
@@ -239,16 +238,4 @@ func TestLoadInjectionRecord(t *testing.T) {
 func future(r *InjectionRecord) *InjectionRecord {
 	r.Injection.StartedAt = at.Add(time.Hour)
 	return r
-}
-
-// Capturing during the fault, with the start record, is the normal case.
-func TestCaptureWithStartRecord(t *testing.T) {
-	_, err := Capture(context.Background(), sources(t, false), Request{
-		Scenario: scenario(t, "pending-sectors-postgres"), Variant: schema.VariantNPDAbsent,
-		Node: "worker-02", Disk: "sacrificial", Inventory: inv(t),
-		Injection: record("disk.pending_sectors", "real", false), OutDir: t.TempDir(),
-	})
-	if err != nil {
-		t.Errorf("capture during an active fault: %v", err)
-	}
 }

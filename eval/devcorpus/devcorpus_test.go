@@ -54,12 +54,16 @@ func TestCommittedCorpusIsCurrent(t *testing.T) {
 }
 
 func TestCorpusLoadsAndIsNeverPublishable(t *testing.T) {
+	all, err := scenarios.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
 	cases, err := fixture.LoadCorpus(committed)
 	if err != nil {
 		t.Fatalf("LoadCorpus: %v", err)
 	}
-	if len(cases) != 60 {
-		t.Errorf("loaded %d fixtures, want 60", len(cases))
+	if len(cases) != 2*len(all) {
+		t.Errorf("loaded %d fixtures, want %d", len(cases), 2*len(all))
 	}
 	for _, c := range cases {
 		if !c.Fixture.Synthetic {
@@ -74,31 +78,9 @@ func TestCorpusLoadsAndIsNeverPublishable(t *testing.T) {
 	}
 }
 
-// Every fixture replays through the real parser and input builder.
+// Every fixture replays through the real parser and input builder, and the
+// SMART archetypes parse to the values their names promise.
 func TestCorpusBuildsAnalysisInputs(t *testing.T) {
-	cases, err := fixture.LoadCorpus(committed)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, c := range cases {
-		in, err := reason.BuildInput(reason.RequestFromFixture(c.Fixture, nil))
-		if err != nil {
-			t.Errorf("%s: %v", c.Dir, err)
-			continue
-		}
-		doc, _ := in.Document()
-		if len(doc.Host.Devices)+len(doc.Host.Unreadable) == 0 {
-			t.Errorf("%s: no host data survived parsing", c.Dir)
-		}
-		if len(doc.Kubernetes.Pods) == 0 {
-			t.Errorf("%s: no pods", c.Dir)
-		}
-	}
-}
-
-// The SMART archetypes must parse to the values their names promise, through
-// the real parser.
-func TestSMARTArchetypesParse(t *testing.T) {
 	cases, err := fixture.LoadCorpus(committed)
 	if err != nil {
 		t.Fatal(err)
@@ -107,9 +89,16 @@ func TestSMARTArchetypesParse(t *testing.T) {
 	for _, c := range cases {
 		in, err := reason.BuildInput(reason.RequestFromFixture(c.Fixture, nil))
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("%s: %v", c.Dir, err)
 		}
-		byID[c.Fixture.ScenarioID], _ = in.Document()
+		doc, _ := in.Document()
+		if len(doc.Host.Devices)+len(doc.Host.Unreadable) == 0 {
+			t.Errorf("%s: no host data survived parsing", c.Dir)
+		}
+		if len(doc.Kubernetes.Pods) == 0 {
+			t.Errorf("%s: no pods", c.Dir)
+		}
+		byID[c.Fixture.ScenarioID] = doc
 	}
 
 	growing := byID["degradation-postgres-gradual"].Host.Devices[0]
