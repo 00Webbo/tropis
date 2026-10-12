@@ -57,9 +57,6 @@ type Config struct {
 	// it for any run whose numbers might be quoted.
 	RequirePublishable bool
 
-	// Thresholds configure the pre-filter. Zero value uses the defaults.
-	Thresholds *prefilter.Thresholds
-
 	// Concurrency bounds parallel analyses. Zero means 4.
 	Concurrency int
 
@@ -74,9 +71,6 @@ type Config struct {
 
 	// Labels overrides how ground truth is loaded. Nil reads label.json.
 	Labels LabelSource
-
-	// Now is the clock. Nil uses time.Now.
-	Now func() time.Time
 }
 
 // Results is a complete run, serialised as results.json.
@@ -160,14 +154,8 @@ func Run(ctx context.Context, cfg Config) (*Results, error) {
 	if cfg.Backend == nil {
 		return nil, errors.New("runner: a backend is required")
 	}
-	now := cfg.Now
-	if now == nil {
-		now = time.Now
-	}
+	now := time.Now
 	th := prefilter.DefaultThresholds()
-	if cfg.Thresholds != nil {
-		th = *cfg.Thresholds
-	}
 	seed := cfg.Seed
 	if seed == 0 {
 		seed = now().UnixNano()

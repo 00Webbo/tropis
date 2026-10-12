@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/00Webbo/tropis/eval/scenarios"
+	"github.com/00Webbo/tropis/pkg/fixture"
 	"github.com/00Webbo/tropis/pkg/schema"
 )
 
@@ -61,11 +62,7 @@ func Generate(dir string, all []scenarios.Scenario) error {
 			if err := l.Validate(); err != nil {
 				return fmt.Errorf("%s: invalid label: %w", s.ID, err)
 			}
-			out := filepath.Join(dir, s.ID+"-"+string(variant))
-			if err := writeJSON(filepath.Join(out, "fixture.json"), f); err != nil {
-				return err
-			}
-			if err := writeJSON(filepath.Join(out, "label.json"), l); err != nil {
+			if err := fixture.Write(fixture.Dir(dir, s.ID, variant), f, &l); err != nil {
 				return err
 			}
 		}
@@ -86,17 +83,6 @@ about Tropis and must never be published or quoted.
 Regenerate with ` + "`go run ./hack/gen-devcorpus`" + `. A test fails if this
 directory drifts from the scenario definitions.
 `
-
-func writeJSON(path string, v any) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, append(b, '\n'), 0o644)
-}
 
 func fixtureFor(s scenarios.Scenario, variant schema.Variant, at time.Time) (*schema.Fixture, error) {
 	current, previous, transport, err := smartFor(s.Synthetic.SMART, at)
@@ -167,7 +153,7 @@ func sataJSON(st sataState, at time.Time) schema.RawJSON {
 			"raw":   map[string]any{"value": raw, "string": fmt.Sprint(raw)},
 		}
 	}
-	realloc := 100 - int(min64(st.realloc/20, 60))
+	realloc := 100 - int(min(st.realloc/20, 60))
 	doc := map[string]any{
 		"json_format_version": []int{1, 0},
 		"smartctl":            map[string]any{"version": []int{7, 4}, "exit_status": exit},
@@ -183,7 +169,7 @@ func sataJSON(st sataState, at time.Time) schema.RawJSON {
 		"ata_smart_attributes": map[string]any{"revision": 10, "table": []any{
 			attr(5, "Reallocated_Sector_Ct", realloc, 36, true, st.realloc),
 			attr(9, "Power_On_Hours", 60, 0, false, st.powerOnHours),
-			attr(187, "Reported_Uncorrect", 100-int(min64(st.uncorrect, 99)), 0, false, st.uncorrect),
+			attr(187, "Reported_Uncorrect", 100-int(min(st.uncorrect, 99)), 0, false, st.uncorrect),
 			attr(194, "Temperature_Celsius", st.temperature, 0, false, uint64(st.temperature)),
 			attr(197, "Current_Pending_Sector", 100, 0, false, st.pending),
 			attr(198, "Offline_Uncorrectable", 100, 0, false, st.uncorrect),
@@ -192,15 +178,6 @@ func sataJSON(st sataState, at time.Time) schema.RawJSON {
 		"temperature":   map[string]any{"current": st.temperature},
 	}
 	b, _ := json.Marshal(doc)
-	return b
-}
-
-func ptr[T any](v T) *T { return &v }
-
-func min64(a, b uint64) uint64 {
-	if a < b {
-		return a
-	}
 	return b
 }
 
@@ -465,7 +442,7 @@ func workloadFor(s scenarios.Scenario, at time.Time) (schema.K8sCapture, []strin
 		// the kubelet's own formats (pkg/kubelet/eviction/helpers.go).
 		msg := `Usage of EmptyDir volume "scratch" exceeds the limit "256Mi". `
 		spec := podSpec{name: name, container: container, phase: corev1.PodFailed, reason: "Evicted",
-			volume: &corev1.Volume{Name: "scratch", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{SizeLimit: ptr(resource.MustParse("256Mi"))}}}}
+			volume: &corev1.Volume{Name: "scratch", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{SizeLimit: new(resource.MustParse("256Mi"))}}}}
 		if s.Synthetic.Workload == "container-storage-eviction" {
 			msg = fmt.Sprintf("Container %s exceeded its local ephemeral storage limit %q. ", container, "256Mi")
 			spec.volume, spec.ephemeralLimit = nil, "256Mi"

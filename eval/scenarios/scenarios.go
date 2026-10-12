@@ -18,6 +18,7 @@ import (
 	_ "embed"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -144,15 +145,6 @@ func Parse(data []byte) ([]Scenario, error) {
 func Validate(all []Scenario) error {
 	var errs []string
 	add := func(format string, a ...any) { errs = append(errs, fmt.Sprintf(format, a...)) }
-	in := func(v string, set []string) bool {
-		for _, s := range set {
-			if s == v {
-				return true
-			}
-		}
-		return false
-	}
-
 	seen := map[string]bool{}
 	for i, s := range all {
 		where := fmt.Sprintf("scenarios[%d] %q", i, s.ID)
@@ -189,7 +181,7 @@ func Validate(all []Scenario) error {
 
 		// A scenario on real SATA exists to change SMART, so it must say
 		// which counters; capture checks the drive against them.
-		realSATA := in("real-sata", s.Hardware)
+		realSATA := slices.Contains(s.Hardware, "real-sata")
 		switch {
 		case realSATA && len(s.ExpectSMART) == 0:
 			add("%s: hardware real-sata needs expectSmart, the counters the fault must grow", where)
@@ -200,27 +192,27 @@ func Validate(all []Scenario) error {
 		}
 		// A scarred drive's counters must hold still; a real-sata fault
 		// exists to move them.
-		if realSATA && in("scarred-sata", s.Hardware) {
+		if realSATA && slices.Contains(s.Hardware, "scarred-sata") {
 			add("%s: hardware real-sata and scarred-sata contradict each other", where)
 		}
 		for _, h := range s.Hardware {
-			if !in(h, HardwareKinds) {
+			if !slices.Contains(HardwareKinds, h) {
 				add("%s: hardware %q is not one of %v", where, h, HardwareKinds)
 			}
 		}
 		for _, c := range s.ExpectSMART {
-			if !in(c, SMARTCounters) {
+			if !slices.Contains(SMARTCounters, c) {
 				add("%s: expectSmart %q is not one of %v", where, c, SMARTCounters)
 			}
 		}
 
-		if !in(s.Synthetic.SMART, SMARTArchetypes) {
+		if !slices.Contains(SMARTArchetypes, s.Synthetic.SMART) {
 			add("%s: synthetic.smart %q is not one of %v", where, s.Synthetic.SMART, SMARTArchetypes)
 		}
-		if !in(s.Synthetic.Workload, WorkloadArchetypes) {
+		if !slices.Contains(WorkloadArchetypes, s.Synthetic.Workload) {
 			add("%s: synthetic.workload %q is not one of %v", where, s.Synthetic.Workload, WorkloadArchetypes)
 		}
-		if !in(s.Synthetic.NPD, NPDArchetypes) {
+		if !slices.Contains(NPDArchetypes, s.Synthetic.NPD) {
 			add("%s: synthetic.npd %q is not one of %v", where, s.Synthetic.NPD, NPDArchetypes)
 		}
 	}

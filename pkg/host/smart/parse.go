@@ -328,33 +328,33 @@ func applyATA(dev *Device, out *smartctlOutput) {
 		raw := a.Raw.Value
 		switch a.ID {
 		case 5: // Reallocated_Sector_Ct
-			dev.ReallocatedSectors = ptr(raw)
+			dev.ReallocatedSectors = new(raw)
 		case 9: // Power_On_Hours
 			if dev.PowerOnHours == nil {
-				dev.PowerOnHours = ptr(raw)
+				dev.PowerOnHours = new(raw)
 			}
 		case 12: // Power_Cycle_Count
 			if dev.PowerCycleCount == nil {
-				dev.PowerCycleCount = ptr(raw)
+				dev.PowerCycleCount = new(raw)
 			}
 		case 187: // Reported_Uncorrect
-			dev.UncorrectableErrors = ptr(raw)
+			dev.UncorrectableErrors = new(raw)
 		case 197: // Current_Pending_Sector
-			dev.PendingSectors = ptr(raw)
+			dev.PendingSectors = new(raw)
 		case 198: // Offline_Uncorrectable
 			// Prefer 187 where both are present: it counts errors reported to
 			// the host, which is the operationally relevant number.
 			if dev.UncorrectableErrors == nil {
-				dev.UncorrectableErrors = ptr(raw)
+				dev.UncorrectableErrors = new(raw)
 			}
 		}
 	}
 
 	if out.ATAErrorLog != nil {
-		dev.ErrorLogCount = ptr(out.ATAErrorLog.Summary.Count)
+		dev.ErrorLogCount = new(out.ATAErrorLog.Summary.Count)
 	}
 	if out.ATASelfTestLog != nil {
-		dev.SelfTestErrors = ptr(out.ATASelfTestLog.Standard.ErrorCountTotal)
+		dev.SelfTestErrors = new(out.ATASelfTestLog.Standard.ErrorCountTotal)
 	}
 }
 
@@ -518,5 +518,3 @@ func joinVendorProduct(vendor, product string) string {
 		return vendor
 	}
 }
-
-func ptr[T any](v T) *T { return &v }

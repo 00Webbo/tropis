@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/00Webbo/tropis/eval/scenarios"
 	"github.com/00Webbo/tropis/pkg/host/smart"
@@ -38,12 +39,9 @@ func CheckSMARTChange(scenarioID string, expect []string, serial string, host *s
 			"re-run the injection with a current hack/inject (its smartBefore carries serial=)", scenarioID, orList(expect))
 	}
 	drive := "drive " + serial
-	if host == nil {
-		return refuse("scenario %s: no host capture to check %s against", scenarioID, drive)
-	}
-	afterPath, after, err := findSerial(host.SMART, serial)
+	afterPath, after, beforePath, before, err := findBoth(scenarioID, serial, host)
 	if err != nil {
-		return refuse("scenario %s: the capture's SMART reading %v", scenarioID, err)
+		return err
 	}
 	if after == nil {
 		return refuse("scenario %s expects %s to grow on %s, but the capture has no SMART reading of that drive",
@@ -54,13 +52,9 @@ func CheckSMARTChange(scenarioID string, expect []string, serial string, host *s
 		return refuse("scenario %s expects %s to grow on %s, but the capture has no earlier reading to compare with; "+
 			"restart the collector before injecting so its oldest reading is pre-fault", scenarioID, orList(expect), drive)
 	}
-	beforePath, before, err := findSerial(host.Previous.SMART, serial)
-	if err != nil {
-		return refuse("scenario %s: the earlier SMART reading %v", scenarioID, err)
-	}
 	if before == nil {
 		return refuse("scenario %s expects %s to grow on %s, but the earlier reading (%s) does not include that drive",
-			scenarioID, orList(expect), drive, host.Previous.CollectedAt.UTC().Format("2006-01-02T15:04:05Z"))
+			scenarioID, orList(expect), drive, stamp(host.Previous.CollectedAt))
 	}
 	if beforePath != afterPath {
 		drive = fmt.Sprintf("drive %s (%s, earlier %s)", serial, afterPath, beforePath)
@@ -81,12 +75,31 @@ func CheckSMARTChange(scenarioID string, expect []string, serial string, host *s
 	}
 	if !grew {
 		return refuse("scenario %s expects %s to grow on %s, but SMART did not show it between %s and %s: %s",
-			scenarioID, orList(expect), drive,
-			host.Previous.CollectedAt.UTC().Format("2006-01-02T15:04:05Z"), host.CollectedAt.UTC().Format("2006-01-02T15:04:05Z"),
+			scenarioID, orList(expect), drive, stamp(host.Previous.CollectedAt), stamp(host.CollectedAt),
 			strings.Join(seen, ", "))
 	}
 	return nil
 }
+
+// findBoth finds the drive with the given serial in the capture's reading
+// and in the collector's earlier one, if there is one. A nil device means
+// that reading does not include the drive.
+func findBoth(scenarioID, serial string, host *schema.HostCapture) (afterPath string, after *smart.Device, beforePath string, before *smart.Device, err error) {
+	if host == nil {
+		return "", nil, "", nil, refuse("scenario %s: no host capture to check drive %s against", scenarioID, serial)
+	}
+	if afterPath, after, err = findSerial(host.SMART, serial); err != nil {
+		return "", nil, "", nil, refuse("scenario %s: the capture's SMART reading %v", scenarioID, err)
+	}
+	if after != nil && host.Previous != nil {
+		if beforePath, before, err = findSerial(host.Previous.SMART, serial); err != nil {
+			return "", nil, "", nil, refuse("scenario %s: the earlier SMART reading %v", scenarioID, err)
+		}
+	}
+	return afterPath, after, beforePath, before, nil
+}
+
+func stamp(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
 // findSerial returns the reading of the drive with the given serial, or nil
 // when no readable device has it. Two devices claiming one serial is an
@@ -160,12 +173,9 @@ func CheckStableDefects(scenarioID, serial string, host *schema.HostCapture) err
 		return refuse("scenario %s needs the scarred drive; name it with --disk, and give that inventory disk its serial", scenarioID)
 	}
 	drive := "drive " + serial
-	if host == nil {
-		return refuse("scenario %s: no host capture to check %s against", scenarioID, drive)
-	}
-	path, d, err := findSerial(host.SMART, serial)
+	path, d, _, before, err := findBoth(scenarioID, serial, host)
 	if err != nil {
-		return refuse("scenario %s: the capture's SMART reading %v", scenarioID, err)
+		return err
 	}
 	if d == nil {
 		return refuse("scenario %s needs stable defects on %s, but the capture has no SMART reading of it", scenarioID, drive)
@@ -175,13 +185,9 @@ func CheckStableDefects(scenarioID, serial string, host *schema.HostCapture) err
 		return refuse("scenario %s needs stable defects on %s, but the capture has no earlier reading to compare with; "+
 			"leave the collector running for 24 h before capturing", scenarioID, drive)
 	}
-	_, before, err := findSerial(host.Previous.SMART, serial)
-	if err != nil {
-		return refuse("scenario %s: the earlier SMART reading %v", scenarioID, err)
-	}
 	if before == nil {
 		return refuse("scenario %s needs stable defects on %s, but the earlier reading (%s) does not include that drive",
-			scenarioID, drive, host.Previous.CollectedAt.UTC().Format("2006-01-02T15:04:05Z"))
+			scenarioID, drive, stamp(host.Previous.CollectedAt))
 	}
 
 	rb, ra := before.ReallocatedSectors, d.ReallocatedSectors
@@ -192,7 +198,7 @@ func CheckStableDefects(scenarioID, serial string, host *schema.HostCapture) err
 		return refuse("scenario %s needs stable defects on %s (reallocated above zero and unchanged, pending 0), "+
 			"but between %s and %s SMART showed %s %s -> %s, %s %s -> %s",
 			scenarioID, drive,
-			host.Previous.CollectedAt.UTC().Format("2006-01-02T15:04:05Z"), host.CollectedAt.UTC().Format("2006-01-02T15:04:05Z"),
+			stamp(host.Previous.CollectedAt), stamp(host.CollectedAt),
 			scenarios.CounterReallocated, show(rb), show(ra), scenarios.CounterPending, show(pb), show(pa))
 	}
 	return nil
