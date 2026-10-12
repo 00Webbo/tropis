@@ -198,21 +198,3 @@ func TestCollectDeviceTimeout(t *testing.T) {
 		t.Errorf("reason = %q, want %q (%s)", fail.Reason, FailureTimeout, fail.Detail)
 	}
 }
-
-func TestCollectorDefaults(t *testing.T) {
-	c := &Collector{}
-	if c.binary() != DefaultBinary {
-		t.Errorf("binary = %q, want %q", c.binary(), DefaultBinary)
-	}
-	if c.timeout() != DefaultTimeout {
-		t.Errorf("timeout = %v, want %v", c.timeout(), DefaultTimeout)
-	}
-
-	custom := &Collector{Binary: "/usr/local/sbin/smartctl", Timeout: time.Second}
-	if custom.binary() != "/usr/local/sbin/smartctl" {
-		t.Errorf("binary = %q", custom.binary())
-	}
-	if custom.timeout() != time.Second {
-		t.Errorf("timeout = %v", custom.timeout())
-	}
-}

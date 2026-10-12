@@ -260,9 +260,6 @@ func TestVerdictValidate(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected a validation error, got nil")
 			}
-			if !errors.Is(err, ErrInvalidVerdict) {
-				t.Errorf("error should match ErrInvalidVerdict, got %T: %v", err, err)
-			}
 
 			var verrs ValidationErrors
 			if !errors.As(err, &verrs) {

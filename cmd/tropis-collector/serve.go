@@ -198,12 +198,16 @@ func runServe(args []string, _, stderr io.Writer) int {
 	return exitOK
 }
 
-// rawFromDir reads saved smartctl output as a raw capture keyed by device,
-// using the same file-name convention as reportFromDir.
+// rawFromDir reads every *.json file in dir as saved smartctl output, keyed
+// by device: the file name stands in for the device path when the output
+// names none.
 func rawFromDir(dir string) (map[string][]byte, error) {
 	matches, err := filepath.Glob(filepath.Join(dir, "*.json"))
 	if err != nil {
 		return nil, err
+	}
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("no *.json files in %s", dir)
 	}
 	out := make(map[string][]byte, len(matches))
 	for _, m := range matches {

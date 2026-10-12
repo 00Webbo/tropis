@@ -262,11 +262,6 @@ func (r *Redactor) String(s string) string {
 	return s
 }
 
-// Bytes redacts b.
-func (r *Redactor) Bytes(b []byte) []byte {
-	return []byte(r.String(string(b)))
-}
-
 func (r *Redactor) secret(kind string) string {
 	r.count(kind, 1)
 	return "[REDACTED:" + kind + "]"

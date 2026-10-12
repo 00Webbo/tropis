@@ -112,10 +112,6 @@ type Finding struct {
 	Summary string `json:"summary"`
 }
 
-func (f Finding) String() string {
-	return fmt.Sprintf("%s %s: %s", f.Device, f.RuleID, f.Summary)
-}
-
 // rule evaluates one condition. prev may be nil.
 type rule struct {
 	id   string
@@ -223,15 +219,6 @@ var rules = []rule{
 		}
 		return "", false
 	}},
-}
-
-// RuleIDs returns every rule ID in priority order.
-func RuleIDs() []string {
-	ids := make([]string, len(rules))
-	for i, r := range rules {
-		ids[i] = r.id
-	}
-	return ids
 }
 
 // EvaluateDevice runs every rule against one device. prev is the previous

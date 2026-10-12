@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"encoding/json"
 	"reflect"
 	"testing"
 )
@@ -56,8 +55,8 @@ func TestVerdictJSONSchemaEnums(t *testing.T) {
 	}
 }
 
-// The schema must carry the bounds Validate enforces, since backends rely on
-// it for constrained decoding.
+// The schema must carry the bounds Validate enforces, since the CRD and the
+// published schema are generated from it.
 func TestVerdictJSONSchemaConstraints(t *testing.T) {
 	s := VerdictJSONSchema()
 	props := s["properties"].(map[string]any)
@@ -127,22 +126,8 @@ func TestVerdictJSONSchemaTimeFormat(t *testing.T) {
 	}
 }
 
-func TestVerdictJSONSchemaBytesIsValidJSON(t *testing.T) {
-	b, err := VerdictJSONSchemaBytes()
-	if err != nil {
-		t.Fatalf("VerdictJSONSchemaBytes: %v", err)
-	}
-	var parsed map[string]any
-	if err := json.Unmarshal(b, &parsed); err != nil {
-		t.Fatalf("generated schema is not valid JSON: %v", err)
-	}
-	if parsed["title"] != "Verdict" {
-		t.Errorf("title = %v, want Verdict", parsed["title"])
-	}
-}
-
-// Descriptions are read by the model during constrained decoding, so a field
-// added without one silently degrades output quality. Fail instead.
+// Descriptions document the CRD and the published schema, so a field added
+// without one leaves a gap in both. Fail instead.
 func TestFieldDocsCoverVerdict(t *testing.T) {
 	types := []reflect.Type{
 		reflect.TypeOf(Verdict{}),

@@ -8,9 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/00Webbo/tropis/pkg/host/prefilter"
@@ -72,42 +69,14 @@ func (s *sourceFlags) register(fs *flag.FlagSet) {
 // report obtains a SMART report, either live or from saved output.
 func (s *sourceFlags) report(ctx context.Context, devices []string) (*smart.Report, error) {
 	if s.fromDir != "" {
-		return reportFromDir(s.fromDir)
-	}
-	c := &smart.Collector{Binary: s.smartctl, Timeout: s.timeout}
-	if len(devices) > 0 {
-		return c.Collect(ctx, devices)
-	}
-	return c.CollectAll(ctx)
-}
-
-// reportFromDir parses every *.json file in dir as smartctl output. The file
-// name stands in for the device path when the output names none.
-func reportFromDir(dir string) (*smart.Report, error) {
-	matches, err := filepath.Glob(filepath.Join(dir, "*.json"))
-	if err != nil {
-		return nil, err
-	}
-	if len(matches) == 0 {
-		return nil, fmt.Errorf("no *.json files in %s", dir)
-	}
-	sort.Strings(matches)
-
-	report := &smart.Report{CollectedAt: time.Now().UTC()}
-	for _, m := range matches {
-		data, err := os.ReadFile(m)
+		raw, err := rawFromDir(s.fromDir)
 		if err != nil {
 			return nil, err
 		}
-		fallback := "/dev/" + strings.TrimSuffix(filepath.Base(m), ".json")
-		dev, fail := smart.Parse(data, fallback)
-		if fail != nil {
-			report.Failures = append(report.Failures, *fail)
-			continue
-		}
-		report.Devices = append(report.Devices, *dev)
+		return smart.ReportFromRaw(raw, time.Now().UTC()), nil
 	}
-	return report, nil
+	c := &smart.Collector{Binary: s.smartctl, Timeout: s.timeout}
+	return c.Collect(ctx, devices)
 }
 
 func runCollect(args []string, stdout, stderr io.Writer) int {

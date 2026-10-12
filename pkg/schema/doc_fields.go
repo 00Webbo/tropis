@@ -11,9 +11,10 @@ import "reflect"
 // TestFieldDocsCoverVerdict fails if a field is added without an entry here,
 // which is the part that actually matters.
 //
-// These descriptions are read by the model during schema-constrained
-// decoding, so they are written as instructions to whoever fills the field in,
-// not as notes to a maintainer.
+// They end up in the CRD (kubectl explain) and the published schema, and are
+// written for whoever reads or fills in the field, not as notes to a
+// maintainer. The model never sees them: backends decode against
+// reason.OutputSchema.
 var fieldDocs = map[string]map[string]string{
 	"Verdict": {
 		"Node":         "The Kubernetes node name this verdict concerns.",

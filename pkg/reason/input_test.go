@@ -301,7 +301,7 @@ func npdTriggers(t *testing.T, raw []schema.RawJSON) []string {
 		conds = append(conds, c)
 	}
 	var res prefilter.Result
-	res.ApplyNPD(conds, prefilter.DefaultNPDTriggerTypes)
+	res.ApplyNPD(conds)
 	return res.TriggeredBy()
 }
 

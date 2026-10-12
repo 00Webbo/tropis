@@ -15,9 +15,9 @@ const JSONSchemaVersion = "https://json-schema.org/draft/2020-12/schema"
 // types by reflection.
 //
 // It is generated rather than hand-written so it cannot drift from the structs:
-// the schema is used for schema-constrained decoding by model backends, for
-// CRD validation, and for documentation, and a stale copy in any of those
-// places would be worse than none.
+// the schema is used for CRD validation and for documentation, and a stale
+// copy in either place would be worse than none. Model backends decode
+// against reason.OutputSchema instead.
 //
 // Constraints that JSON Schema can express are expressed here. The conditional
 // rule tying RootCause to a causal Relationship is emitted as an if/then/else,

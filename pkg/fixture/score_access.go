@@ -5,16 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 
 	"github.com/00Webbo/tropis/pkg/schema"
 )
-
-// newReader wraps bytes for a streaming decoder.
-func newReader(b []byte) io.Reader { return bytes.NewReader(b) }
 
 // ErrNoLabel is returned when a scenario directory has no label.json.
 var ErrNoLabel = errors.New("no label.json in directory")
@@ -40,7 +36,7 @@ func LoadLabel(dir string) (*schema.Label, error) {
 	}
 
 	var l schema.Label
-	dec := json.NewDecoder(newReader(data))
+	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&l); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
