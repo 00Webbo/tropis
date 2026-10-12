@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"os"
+	"os/signal"
 	"sort"
 	"strings"
+	"syscall"
+	"time"
 )
 
 const (
@@ -52,6 +57,17 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitUsage
 	}
 	return cmd.run(args[1:], stdout, stderr)
+}
+
+// signalContext is cancelled on SIGINT or SIGTERM (a CronJob pod is stopped
+// with SIGTERM) and, when timeout is positive, after timeout.
+func signalContext(timeout time.Duration) (context.Context, context.CancelFunc) {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	if timeout <= 0 {
+		return ctx, stop
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	return ctx, func() { cancel(); stop() }
 }
 
 func fail(stderr io.Writer, format string, a ...any) int {

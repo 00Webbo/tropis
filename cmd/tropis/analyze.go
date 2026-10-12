@@ -1,16 +1,13 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"k8s.io/client-go/dynamic"
@@ -82,12 +79,12 @@ func (c *clusterFlags) clients() (kubernetes.Interface, dynamic.Interface, error
 	return cs, dyn, nil
 }
 
-func (c *clusterFlags) pipeline(bf *backendFlags, write bool) (*pipeline.Pipeline, kubernetes.Interface, error) {
+func (c *clusterFlags) pipeline(bf *backendFlags, write bool, timeout time.Duration) (*pipeline.Pipeline, kubernetes.Interface, error) {
 	cs, dyn, err := c.clients()
 	if err != nil {
 		return nil, nil, err
 	}
-	cfg, err := bf.config()
+	cfg, err := bf.config(timeout)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -112,7 +109,8 @@ func runAnalyze(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	jsonOut := fs.Bool("json", false, "print the verdict as JSON: the same document a NodeHealthReport carries as .status")
 	write := fs.Bool("write-report", false, "also write the verdict as the node's NodeHealthReport")
-	timeout := fs.Duration("timeout", 5*time.Minute, "overall timeout")
+	fs.BoolVar(write, "write-reports", false, "same as --write-report")
+	timeout := fs.Duration("timeout", 5*time.Minute, "overall timeout for the analysis; also the backend request timeout unless TROPIS_TIMEOUT sets one")
 	var cf clusterFlags
 	var bf backendFlags
 	cf.register(fs)
@@ -130,13 +128,11 @@ func runAnalyze(args []string, stdout, stderr io.Writer) int {
 		return exitUsage
 	}
 
-	p, _, err := cf.pipeline(&bf, *write)
+	p, _, err := cf.pipeline(&bf, *write, *timeout)
 	if err != nil {
 		return fail(stderr, "%v", err)
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-	ctx, cancel := context.WithTimeout(ctx, *timeout)
+	ctx, cancel := signalContext(*timeout)
 	defer cancel()
 
 	// An explicit request is always analysed, raised or not.
@@ -160,9 +156,10 @@ func runSweep(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("sweep", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	write := fs.Bool("write-reports", true, "write each verdict as a NodeHealthReport")
+	fs.BoolVar(write, "write-report", true, "same as --write-reports")
 	jsonOut := fs.Bool("json", false, "print every outcome as JSON")
 	all := fs.Bool("all", false, "analyse every node, not only those the pre-filter raises; costs a model call per node")
-	timeout := fs.Duration("timeout", 30*time.Minute, "overall timeout")
+	timeout := fs.Duration("timeout", 30*time.Minute, "overall timeout for the whole sweep; also the backend request timeout unless TROPIS_TIMEOUT sets one")
 	var cf clusterFlags
 	var bf backendFlags
 	cf.register(fs)
@@ -175,7 +172,7 @@ func runSweep(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		return fail(stderr, "%v", err)
 	}
-	p, cs, err := cf.pipeline(&bf, *write)
+	p, cs, err := cf.pipeline(&bf, *write, *timeout)
 	if err != nil {
 		return fail(stderr, "%v", err)
 	}
@@ -187,9 +184,7 @@ func runSweep(args []string, stdout, stderr io.Writer) int {
 		}
 		p.Notifier, p.Policy = n, nc.policy
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-	ctx, cancel := context.WithTimeout(ctx, *timeout)
+	ctx, cancel := signalContext(*timeout)
 	defer cancel()
 
 	outcomes, err := p.Sweep(ctx, *all)

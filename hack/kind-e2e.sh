@@ -120,7 +120,7 @@ kubeconfig="$work/kubeconfig"
 kind get kubeconfig --name "$CLUSTER" >"$kubeconfig"
 go run ./cmd/tropis capture --kubeconfig "$kubeconfig" --namespace "$NS" \
 	--scenario unreadable-smart-restarts --variant npd-absent \
-	--node "$node" --inventory "$work/inventory.yaml" --out "$work/corpus" --alerts-file /dev/null
+	--node "$node" --inventory "$work/inventory.yaml" --corpus "$work/corpus" --alerts-file /dev/null
 go run ./cmd/tropis eval --corpus "$work/corpus" --backend mock --out "$work/results" --quiet
 grep -q '"synthetic": false' "$work/results/results.json" || { echo "the capture was not recorded as real"; exit 1; }
 rm -rf "$work"
