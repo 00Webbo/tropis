@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/00Webbo/tropis/pkg/schema"
@@ -113,7 +114,8 @@ func Finalize(raw []byte, in *AnalysisInput, info schema.BackendInfo) (schema.Ve
 	if err := dec.Decode(&out); err != nil {
 		return schema.Verdict{}, fmt.Errorf("%w: %v", ErrMalformedOutput, err)
 	}
-	if dec.More() {
+	// More() is false before a stray "}" or "]", so require a clean end.
+	if err := dec.Decode(&json.RawMessage{}); err != io.EOF {
 		return schema.Verdict{}, fmt.Errorf("%w: trailing content after the JSON object", ErrMalformedOutput)
 	}
 
@@ -175,6 +177,10 @@ func extractJSON(raw []byte) []byte {
 		s = s[nl+1:]
 	}
 	if end := bytes.LastIndex(s, []byte("```")); end >= 0 {
+		// Text after the closing fence is not dropped: it fails parsing.
+		if len(bytes.TrimSpace(s[end+3:])) > 0 {
+			return bytes.TrimSpace(raw)
+		}
 		s = s[:end]
 	}
 	return bytes.TrimSpace(s)
