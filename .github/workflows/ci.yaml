@@ -98,20 +98,16 @@ jobs:
       - name: install on kind and require a verdict
         run: bash hack/kind-e2e.sh
 
-  dco:
+  commits:
+    # Conventional Commits and DCO sign-off on every commit in the PR. Pull
+    # requests are rebase-merged, so the commits are what lands on main.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: every commit is signed off
-        run: |
-          missing=0
-          for c in $(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}); do
-            if ! git log -1 --format=%B "$c" | grep -q '^Signed-off-by: '; then
-              echo "commit $c has no Signed-off-by line; see CONTRIBUTING.md"
-              missing=1
-            fi
-          done
-          exit $missing
+      - run: bash hack/check-commits.sh "$BASE" "$HEAD"
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
