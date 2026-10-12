@@ -40,6 +40,7 @@ nodes:                             # at least one
       - id: sacrificial            # required: lower-case handle, unique per node
         device: /dev/sdb           # required: kernel device path
         byId: /dev/disk/by-id/ata-...   # optional, preferred for targeting
+        serial: SERIAL0001         # optional: smartctl serial; capture matches the drive by it (scarred-sata needs it)
         model: Example HDD 2TB     # optional
         transport: sata            # optional: sata, nvme, sas or loop
         destructible: true         # default false; see below
@@ -64,6 +65,11 @@ would mean a wiped node.
 
 Injection targets `byId` when it is set, because kernel names such as
 `/dev/sdb` can move between reboots and a stable path cannot.
+
+For the same reason capture finds the disk in SMART readings by `serial`
+(`smartctl -i <device> | grep Serial`), never by `device`. It is required
+for `--disk` with a `scarred-sata` scenario, and otherwise used to record
+the drive's model and transport from SMART.
 
 ## Querying it
 

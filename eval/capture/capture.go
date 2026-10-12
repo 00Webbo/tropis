@@ -135,12 +135,12 @@ func Capture(ctx context.Context, src Sources, req Request) (string, error) {
 	}
 	// A stable-defect scenario is a claim that the drive carries old defects
 	// that are not moving; check that too.
+	serial := ""
+	if disk != nil {
+		serial = disk.Serial
+	}
 	if hasHardware(req.Scenario, "scarred-sata") {
-		device := ""
-		if disk != nil {
-			device = disk.Device
-		}
-		if err := CheckStableDefects(req.Scenario.ID, device, host); err != nil {
+		if err := CheckStableDefects(req.Scenario.ID, serial, host); err != nil {
 			return "", err
 		}
 	}
@@ -151,7 +151,7 @@ func Capture(ctx context.Context, src Sources, req Request) (string, error) {
 		Variant:     req.Variant,
 		CapturedAt:  now().UTC(),
 		Node:        req.Node,
-		Environment: environment(req.Inventory, node, disk, k8s, host, req.Variant),
+		Environment: environment(req.Inventory, node, disk, firstNonEmpty(serial, SerialFromRecord(req.Injection)), k8s, host, req.Variant),
 		Host:        *host,
 		Kubernetes:  *k8s,
 		Baseline:    req.Baseline,
@@ -233,7 +233,7 @@ func hasHardware(s scenarios.Scenario, h string) bool {
 
 // environment records the rig. What the live node reports wins over the
 // inventory, which may be stale; the inventory fills the gaps.
-func environment(inv *inventory.Inventory, node *inventory.Node, disk *inventory.Disk,
+func environment(inv *inventory.Inventory, node *inventory.Node, disk *inventory.Disk, serial string,
 	k8s *schema.K8sCapture, host *schema.HostCapture, variant schema.Variant) schema.Environment {
 	env := schema.Environment{
 		Kernel:            node.Kernel,
@@ -253,9 +253,10 @@ func environment(inv *inventory.Inventory, node *inventory.Node, disk *inventory
 	if disk != nil {
 		env.DiskModel = disk.Model
 		env.DiskTransport = disk.Transport
-		// The device's own identity beats the inventory's description.
-		if raw, ok := host.SMART[disk.Device]; ok {
-			if d, fail := smart.Parse(raw, disk.Device); fail == nil {
+		// The device's own identity beats the inventory's description. It is
+		// found by serial, since the kernel path may now be another drive's.
+		if serial = strings.TrimSpace(serial); serial != "" {
+			if _, d, err := findSerial(host.SMART, serial); err == nil && d != nil {
 				env.DiskModel = firstNonEmpty(d.ModelName, env.DiskModel)
 				if d.Transport != smart.TransportUnknown {
 					env.DiskTransport = string(d.Transport)

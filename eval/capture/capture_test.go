@@ -74,6 +74,12 @@ func inv(t *testing.T) *inventory.Inventory {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The example's placeholder serial stands for the sample drive's.
+	_, d, err := i.Disk("worker-02", "sacrificial")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.Serial = sampleSerial
 	return i
 }
 

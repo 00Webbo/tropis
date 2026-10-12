@@ -151,32 +151,26 @@ func orList(c []string) string {
 // the cause.
 //
 // These scenarios inject nothing on the drive, so there is no injection
-// record to name it. The drive is the one at the inventory disk's device
-// (--disk) in the capture's reading; from there it is followed by serial, as
-// CheckSMARTChange does, in case the earlier reading had it at another path.
-func CheckStableDefects(scenarioID, device string, host *schema.HostCapture) error {
-	if device == "" {
-		return refuse("scenario %s needs the scarred drive; name it with --disk", scenarioID)
-	}
-	if host == nil {
-		return refuse("scenario %s: no host capture to check %s against", scenarioID, device)
-	}
-	raw, ok := host.SMART[device]
-	if !ok {
-		return refuse("scenario %s needs stable defects on %s, but the capture has no SMART reading of it", scenarioID, device)
-	}
-	d, fail := smart.Parse(raw, device)
-	if fail != nil {
-		return refuse("scenario %s needs stable defects on %s, but its SMART reading is unusable: %v", scenarioID, device, fail)
-	}
-	serial := strings.TrimSpace(d.SerialNumber)
+// record to name it. The drive is the inventory disk named with --disk,
+// found in both readings by that entry's serial: its kernel path may have
+// moved, and a reading of some other drive says nothing about this one.
+func CheckStableDefects(scenarioID, serial string, host *schema.HostCapture) error {
+	serial = strings.TrimSpace(serial)
 	if serial == "" {
-		return refuse("scenario %s: the SMART reading of %s has no serial number", scenarioID, device)
+		return refuse("scenario %s needs the scarred drive; name it with --disk, and give that inventory disk its serial", scenarioID)
 	}
-	drive := fmt.Sprintf("drive %s (%s)", serial, device)
-	if _, _, err := findSerial(host.SMART, serial); err != nil {
+	drive := "drive " + serial
+	if host == nil {
+		return refuse("scenario %s: no host capture to check %s against", scenarioID, drive)
+	}
+	path, d, err := findSerial(host.SMART, serial)
+	if err != nil {
 		return refuse("scenario %s: the capture's SMART reading %v", scenarioID, err)
 	}
+	if d == nil {
+		return refuse("scenario %s needs stable defects on %s, but the capture has no SMART reading of it", scenarioID, drive)
+	}
+	drive += " (" + path + ")"
 	if host.Previous == nil {
 		return refuse("scenario %s needs stable defects on %s, but the capture has no earlier reading to compare with; "+
 			"leave the collector running for 24 h before capturing", scenarioID, drive)

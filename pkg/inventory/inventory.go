@@ -82,6 +82,10 @@ type Disk struct {
 	Device string `json:"device"`
 	// ByID is the /dev/disk/by-id path. Preferred for targeting when set.
 	ByID string `json:"byId,omitempty"`
+	// Serial is the drive's serial number, as smartctl reports it. Capture
+	// finds the drive in SMART readings by it, since Device may have moved;
+	// scarred-sata scenarios require it.
+	Serial string `json:"serial,omitempty"`
 	// Model is the drive model.
 	Model string `json:"model,omitempty"`
 	// Transport is sata, nvme, sas or loop.

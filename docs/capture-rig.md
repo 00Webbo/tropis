@@ -281,7 +281,8 @@ Then:
 Copy [`hack/inventory.example.yaml`](../hack/inventory.example.yaml) to
 `rig.yaml` (keep it out of git if it holds real addresses). For `worker-02`
 list the boot disk (`destructible: false`) and the test disk currently
-installed, with `byId` (`ls -l /dev/disk/by-id/ata-*`), `transport: sata`,
+installed, with `byId` (`ls -l /dev/disk/by-id/ata-*`), `serial` (as
+`smartctl -i` reports it), `transport: sata`,
 `destructible: true` and `mountpoint: /mnt/disks/sacrificial`. Use the role
 as the id (`clean`, `scarred`, `degrader`) and edit the entry when you swap
 drives, so each fixture records the right model and serial. Check it:
@@ -404,8 +405,9 @@ NPD uninstalled *and* its conditions removed from the node status
 then leave the collector running untouched for ≥ 24 h before the first
 capture, so its oldest snapshot is a day old with the same counts. These
 scenarios (`hardware: [scarred-sata]`) must be captured with
-`--disk scarred`: capture reads the drive at that inventory entry's
-`device`, follows it by serial into the collector's oldest reading, and
+`--disk scarred`: capture finds the drive by that inventory entry's
+`serial` (required here; never by `device`, which can move) in both the
+capture and the collector's oldest reading, and
 refuses unless reallocated is above zero and unchanged and pending is 0 in
 both readings. A refusal here means the drive is not (or is no longer) scarred;
 there is no override.
