@@ -276,7 +276,8 @@ func TestEvaluateDeviceNil(t *testing.T) {
 // output contract.
 func TestRuleIDsUnique(t *testing.T) {
 	seen := map[string]bool{}
-	for _, id := range RuleIDs() {
+	for _, r := range rules {
+		id := r.id
 		if seen[id] {
 			t.Errorf("duplicate rule ID %q", id)
 		}

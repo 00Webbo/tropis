@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -35,14 +34,6 @@ func (e ValidationErrors) Error() string {
 	}
 	return "invalid verdict: " + strings.Join(parts, "; ")
 }
-
-// Is lets errors.Is(err, ErrInvalidVerdict) match a ValidationErrors value.
-func (e ValidationErrors) Is(target error) bool { return target == ErrInvalidVerdict }
-
-// ErrInvalidVerdict is a sentinel matching any validation failure, so callers
-// can test errors.Is(err, schema.ErrInvalidVerdict) without unwrapping the
-// individual violations.
-var ErrInvalidVerdict = errors.New("invalid verdict")
 
 // Validate checks a Verdict against every structural constraint the project
 // relies on, returning a ValidationErrors listing all violations, or nil.

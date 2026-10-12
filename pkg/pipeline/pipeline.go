@@ -11,8 +11,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
-	"time"
 
 	"github.com/00Webbo/tropis/pkg/host/prefilter"
 	"github.com/00Webbo/tropis/pkg/host/smart"
@@ -28,14 +26,14 @@ import (
 // Kubernetes capture, plus node-problem-detector conditions as triggers
 // where present.
 func Prefilter(host schema.HostCapture, kc schema.K8sCapture, th prefilter.Thresholds) prefilter.Result {
-	report := parseSMART(host.SMART, host.CollectedAt)
+	report := smart.ReportFromRaw(host.SMART, host.CollectedAt)
 	var previous map[string]*smart.Device
 	if host.Previous != nil {
-		prev := parseSMART(host.Previous.SMART, host.Previous.CollectedAt)
+		prev := smart.ReportFromRaw(host.Previous.SMART, host.Previous.CollectedAt)
 		previous = map[string]*smart.Device{}
 		for i := range prev.Devices {
 			d := prev.Devices[i]
-			previous[prefilter.DeviceKey(&d)] = &d
+			previous[d.Key()] = &d
 		}
 	}
 	res := prefilter.Evaluate(report, previous, th)
@@ -47,27 +45,9 @@ func Prefilter(host schema.HostCapture, kc schema.K8sCapture, th prefilter.Thres
 			conds = append(conds, c)
 		}
 	}
-	res.ApplyNPD(conds, prefilter.DefaultNPDTriggerTypes)
+	res.ApplyNPD(conds)
 	res.KubernetesTriggers = triggers.RuleIDs(triggers.Evaluate(kc))
 	return res
-}
-
-func parseSMART(raw map[string]schema.RawJSON, at time.Time) *smart.Report {
-	paths := make([]string, 0, len(raw))
-	for p := range raw {
-		paths = append(paths, p)
-	}
-	sort.Strings(paths)
-	report := &smart.Report{CollectedAt: at}
-	for _, p := range paths {
-		d, fail := smart.Parse(raw[p], p)
-		if fail != nil {
-			report.Failures = append(report.Failures, *fail)
-			continue
-		}
-		report.Devices = append(report.Devices, *d)
-	}
-	return report
 }
 
 // HostSource supplies a node's host capture.

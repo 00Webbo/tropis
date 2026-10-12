@@ -10,10 +10,7 @@
 // single normalised view over all three, so rules do not branch on transport.
 package smart
 
-import (
-	"fmt"
-	"time"
-)
+import "time"
 
 // Transport is the device interface, which determines how SMART data is
 // reported and therefore how it must be interpreted.
@@ -147,6 +144,19 @@ type Device struct {
 	Messages []Message `json:"messages,omitempty"`
 }
 
+// Key identifies a physical device across readings.
+//
+// Keyed on model and serial rather than path: device paths are not stable
+// across reboots, and a replaced drive under the same path must not be read
+// as a healthy drive whose defect count went down. Falls back to the path
+// when the device reports no serial.
+func (d *Device) Key() string {
+	if d.SerialNumber != "" {
+		return d.ModelName + "/" + d.SerialNumber
+	}
+	return "path:" + d.Path
+}
+
 // Attribute is one entry from a SATA SMART attribute table.
 //
 // Retained in full because vendors define IDs above 100 inconsistently, and
@@ -225,10 +235,6 @@ type DeviceFailure struct {
 	Reason FailureReason `json:"reason"`
 	// Detail is the underlying message from smartctl or the OS.
 	Detail string `json:"detail,omitempty"`
-}
-
-func (f DeviceFailure) String() string {
-	return fmt.Sprintf("%s: %s (%s)", f.Path, f.Reason, f.Detail)
 }
 
 // FailureReason classifies why a device could not be read.

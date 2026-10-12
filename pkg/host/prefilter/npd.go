@@ -117,7 +117,7 @@ func truncate(s string, n int) string {
 
 // Evaluate runs the rules over a whole sweep.
 //
-// previous maps a device key (see DeviceKey) to its last reading; it may be
+// previous maps a device key (see smart.Device.Key) to its last reading; it may be
 // nil, in which case growth rules stay silent.
 func Evaluate(report *smart.Report, previous map[string]*smart.Device, th Thresholds) Result {
 	var res Result
@@ -128,7 +128,7 @@ func Evaluate(report *smart.Report, previous map[string]*smart.Device, th Thresh
 		cur := &report.Devices[i]
 		var prev *smart.Device
 		if previous != nil {
-			prev = previous[DeviceKey(cur)]
+			prev = previous[cur.Key()]
 		}
 		res.Findings = append(res.Findings, EvaluateDevice(cur, prev, th)...)
 	}
@@ -136,19 +136,6 @@ func Evaluate(report *smart.Report, previous map[string]*smart.Device, th Thresh
 		res.Unknown = append(res.Unknown, fmt.Sprintf("%s (%s)", strings.TrimPrefix(f.Path, "/dev/"), f.Reason))
 	}
 	return res
-}
-
-// DeviceKey identifies a physical device across readings.
-//
-// Keyed on model and serial rather than path: device paths are not stable
-// across reboots, and a replaced drive under the same path must not be read
-// as a healthy drive whose defect count went down. Falls back to the path
-// when the device reports no serial.
-func DeviceKey(d *smart.Device) string {
-	if d.SerialNumber != "" {
-		return d.ModelName + "/" + d.SerialNumber
-	}
-	return "path:" + d.Path
 }
 
 // NPDCondition is a node condition reported by node-problem-detector.
@@ -162,14 +149,14 @@ type NPDCondition struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-// DefaultNPDTriggerTypes are the NPD condition types that raise a node.
+// npdTriggerTypes are the NPD condition types that raise a node.
 //
 // Only conditions plausibly related to the host layer are listed. NPD
 // conditions are an optional, cheap "look at this node" signal where NPD is
 // installed. They never reach the reasoning layer as evidence: NPD collapses
 // rich host signal into a boolean, and reasoning over it would mean reasoning
 // over someone else's summary of the evidence.
-var DefaultNPDTriggerTypes = []string{
+var npdTriggerTypes = []string{
 	"KernelDeadlock",
 	"ReadonlyFilesystem",
 	"FrequentKubeletRestart",
@@ -180,9 +167,9 @@ var DefaultNPDTriggerTypes = []string{
 
 // ApplyNPD adds NPD-sourced triggers to a result. It is a no-op when NPD is
 // absent, which is the point: everything works identically without it.
-func (r *Result) ApplyNPD(conditions []NPDCondition, triggerTypes []string) {
+func (r *Result) ApplyNPD(conditions []NPDCondition) {
 	allowed := map[string]bool{}
-	for _, t := range triggerTypes {
+	for _, t := range npdTriggerTypes {
 		allowed[t] = true
 	}
 	for _, c := range conditions {

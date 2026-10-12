@@ -38,9 +38,6 @@ func (r *RawJSON) UnmarshalJSON(data []byte) error {
 // String returns the raw document as a string.
 func (r RawJSON) String() string { return string(r) }
 
-// Len returns the size of the raw document in bytes.
-func (r RawJSON) Len() int { return len(r) }
-
 // IsEmpty reports whether the document is absent or JSON null.
 func (r RawJSON) IsEmpty() bool {
 	trimmed := bytes.TrimSpace(r)

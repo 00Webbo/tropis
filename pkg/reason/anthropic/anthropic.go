@@ -24,6 +24,10 @@ import (
 // DefaultModel is the model used when none is configured.
 const DefaultModel = "claude-opus-5"
 
+// maxTokens bounds the response. It leaves room for adaptive thinking ahead
+// of a JSON verdict well under that size.
+const maxTokens = 16000
+
 // Config configures the Anthropic backend.
 type Config struct {
 	// Model is the Claude model ID. Empty means DefaultModel.
@@ -39,10 +43,6 @@ type Config struct {
 	// Effort is the output_config effort level: low, medium, high, xhigh or
 	// max. Empty uses the API default.
 	Effort string
-
-	// MaxTokens bounds the response. Zero means 16000, which leaves room for
-	// adaptive thinking ahead of a JSON verdict well under that size.
-	MaxTokens int64
 
 	// Timeout bounds one request. Zero means two minutes.
 	Timeout time.Duration
@@ -63,9 +63,6 @@ type Backend struct {
 func New(cfg Config) *Backend {
 	if cfg.Model == "" {
 		cfg.Model = DefaultModel
-	}
-	if cfg.MaxTokens == 0 {
-		cfg.MaxTokens = 16000
 	}
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 2 * time.Minute
@@ -97,7 +94,7 @@ func (b *Backend) Analyze(ctx context.Context, in *reason.AnalysisInput) (schema
 
 	params := sdk.BetaMessageNewParams{
 		Model:     sdk.Model(b.cfg.Model),
-		MaxTokens: b.cfg.MaxTokens,
+		MaxTokens: maxTokens,
 		// The system prompt is identical for every node and carries the
 		// few-shot examples, so it is the cacheable prefix.
 		System: []sdk.BetaTextBlockParam{{
@@ -132,7 +129,7 @@ func (b *Backend) Analyze(ctx context.Context, in *reason.AnalysisInput) (schema
 		return schema.Verdict{}, fmt.Errorf("%w: %s", reason.ErrRefused, resp.StopDetails.Explanation)
 	case sdk.BetaStopReasonMaxTokens:
 		return schema.Verdict{}, fmt.Errorf("%w: response hit max_tokens (%d) before completing",
-			reason.ErrMalformedOutput, b.cfg.MaxTokens)
+			reason.ErrMalformedOutput, maxTokens)
 	}
 
 	var text strings.Builder

@@ -21,7 +21,7 @@ type Fixture struct {
 	Version string `json:"version"`
 
 	// ScenarioID identifies the scenario this capture belongs to, for example
-	// "disk-realloc-growth-01". It joins a Fixture to its Label and to the
+	// "pending-sectors-postgres". It joins a Fixture to its Label and to the
 	// scenario definition.
 	ScenarioID string `json:"scenarioId"`
 
@@ -222,7 +222,7 @@ type Label struct {
 	RootCauseLayer *Layer `json:"rootCauseLayer,omitempty"`
 
 	// FaultType identifies what was injected, for example
-	// "disk.reallocated_growth" or "disk.io_timeout". Empty for a scenario
+	// "disk.pending_sectors" or "disk.read_errors". Empty for a scenario
 	// with no injected fault.
 	FaultType string `json:"faultType,omitempty"`
 

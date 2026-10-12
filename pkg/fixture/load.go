@@ -17,6 +17,7 @@
 package fixture
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -57,7 +58,7 @@ func LoadFixture(dir string) (*schema.Fixture, error) {
 	}
 
 	var f schema.Fixture
-	dec := json.NewDecoder(newReader(data))
+	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&f); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)

@@ -3,6 +3,8 @@ package smart
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -47,8 +49,6 @@ const unreadableMask = exitCommandLineError | exitDeviceOpenFailed
 // field would break on a drive it had never seen. The raw output is preserved
 // in the fixture regardless, so nothing is lost.
 type smartctlOutput struct {
-	JSONFormatVersion []int `json:"json_format_version"`
-
 	Smartctl struct {
 		Version    []int `json:"version"`
 		ExitStatus int   `json:"exit_status"`
@@ -64,7 +64,6 @@ type smartctlOutput struct {
 
 	Device struct {
 		Name     string `json:"name"`
-		InfoName string `json:"info_name"`
 		Type     string `json:"type"`
 		Protocol string `json:"protocol"`
 	} `json:"device"`
@@ -80,7 +79,6 @@ type smartctlOutput struct {
 	SCSIModelName string `json:"scsi_model_name"`
 
 	UserCapacity struct {
-		Blocks uint64 `json:"blocks"`
 		// Bytes overflows float64 precision on large devices; BytesStr carries
 		// the exact value and is preferred when present. Observed in real NVMe
 		// captures, not a hypothetical.
@@ -110,8 +108,7 @@ type smartctlOutput struct {
 	PowerCycleCount *uint64 `json:"power_cycle_count"`
 
 	ATASmartAttributes *struct {
-		Revision int `json:"revision"`
-		Table    []struct {
+		Table []struct {
 			ID         int    `json:"id"`
 			Name       string `json:"name"`
 			Value      int    `json:"value"`
@@ -137,7 +134,6 @@ type smartctlOutput struct {
 		PowerCycles             *uint64 `json:"power_cycles"`
 		MediaErrors             *uint64 `json:"media_errors"`
 		NumErrLogEntries        *uint64 `json:"num_err_log_entries"`
-		UnsafeShutdowns         *uint64 `json:"unsafe_shutdowns"`
 	} `json:"nvme_smart_health_information_log"`
 
 	ATAErrorLog *struct {
@@ -287,6 +283,22 @@ func Parse(data []byte, devicePath string) (*Device, *DeviceFailure) {
 	}
 
 	return dev, nil
+}
+
+// ReportFromRaw parses raw `smartctl -j` output, keyed by device path, into a
+// report. Devices are parsed in path order, each key serving as Parse's
+// fallback path.
+func ReportFromRaw[T ~[]byte](raw map[string]T, at time.Time) *Report {
+	report := &Report{CollectedAt: at}
+	for _, p := range slices.Sorted(maps.Keys(raw)) {
+		d, fail := Parse(raw[p], p)
+		if fail != nil {
+			report.Failures = append(report.Failures, *fail)
+			continue
+		}
+		report.Devices = append(report.Devices, *d)
+	}
+	return report
 }
 
 // applyATA normalises a SATA attribute table.

@@ -93,7 +93,7 @@ func TestEvaluateReport(t *testing.T) {
 	prevB.Path = "/dev/sdb"
 	prevB.SerialNumber = "SN-B"
 	prevB.ReallocatedSectors = u(10)
-	previous := map[string]*smart.Device{DeviceKey(prevB): prevB}
+	previous := map[string]*smart.Device{prevB.Key(): prevB}
 
 	res := Evaluate(report, previous, DefaultThresholds())
 
@@ -113,18 +113,18 @@ func TestEvaluateReport(t *testing.T) {
 
 // A drive replaced under the same path must not be compared against its
 // predecessor.
-func TestDeviceKeyUsesSerialNotPath(t *testing.T) {
+func TestKeyUsesSerialNotPath(t *testing.T) {
 	a := healthySATA()
 	b := healthySATA()
 	b.SerialNumber = "DIFFERENT"
-	if DeviceKey(a) == DeviceKey(b) {
+	if a.Key() == b.Key() {
 		t.Error("two drives at the same path with different serials must have different keys")
 	}
 
 	noSerial := healthySATA()
 	noSerial.SerialNumber = ""
-	if DeviceKey(noSerial) != "path:/dev/sda" {
-		t.Errorf("key without serial = %q", DeviceKey(noSerial))
+	if noSerial.Key() != "path:/dev/sda" {
+		t.Errorf("key without serial = %q", noSerial.Key())
 	}
 }
 
@@ -134,7 +134,7 @@ func TestNPDAbsentChangesNothing(t *testing.T) {
 
 	without := Evaluate(report, nil, DefaultThresholds())
 	with := Evaluate(report, nil, DefaultThresholds())
-	with.ApplyNPD(nil, DefaultNPDTriggerTypes)
+	with.ApplyNPD(nil)
 
 	if !reflect.DeepEqual(without, with) {
 		t.Errorf("applying no NPD conditions changed the result:\n%+v\n%+v", without, with)
@@ -150,7 +150,7 @@ func TestApplyNPD(t *testing.T) {
 		{Type: "ReadonlyFilesystem", Status: "True", Reason: "FilesystemIsReadOnly"},
 		{Type: "KernelDeadlock", Status: "False"},
 		{Type: "SomethingUnrelated", Status: "True"},
-	}, DefaultNPDTriggerTypes)
+	})
 
 	if !reflect.DeepEqual(res.NPDTriggers, []string{"npd.ReadonlyFilesystem"}) {
 		t.Errorf("npdTriggers = %v", res.NPDTriggers)
@@ -181,7 +181,7 @@ func TestStateRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadState: %v", err)
 	}
-	d, ok := got[DeviceKey(healthySATA())]
+	d, ok := got[healthySATA().Key()]
 	if !ok {
 		t.Fatalf("saved device missing from state: %v", got)
 	}
@@ -202,7 +202,7 @@ func TestSaveStateMergesAcrossSweeps(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := LoadState(dir)
-	if _, ok := got[DeviceKey(a)]; !ok {
+	if _, ok := got[a.Key()]; !ok {
 		t.Error("a device absent from this sweep should keep its previous reading")
 	}
 }

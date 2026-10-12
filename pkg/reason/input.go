@@ -31,7 +31,8 @@ type Request struct {
 }
 
 // RequestFromFixture builds a Request from a fixture. The fixture's NPD
-// conditions are not carried over: NPD output is never evidence.
+// conditions ride along in Kubernetes, as in a live capture; BuildInput
+// ignores them, since NPD output is never evidence.
 func RequestFromFixture(f *schema.Fixture, triggeredBy []string) Request {
 	return Request{
 		Node:        f.Node,
@@ -222,10 +223,7 @@ func BuildInput(req Request) (*AnalysisInput, error) {
 	in := &AnalysisInput{refs: map[string]refInfo{}}
 	r := redact.New()
 
-	host, err := in.buildHost(req.Host, r)
-	if err != nil {
-		return nil, err
-	}
+	host := in.buildHost(req.Host, r)
 	k8s, err := in.buildK8s(req.Kubernetes, r)
 	if err != nil {
 		return nil, err
@@ -284,7 +282,7 @@ func (in *AnalysisInput) addRef(ref, source string, at time.Time, lines int) {
 	in.refs[ref] = refInfo{source: source, collectedAt: at, lines: lines}
 }
 
-func (in *AnalysisInput) buildHost(hc schema.HostCapture, r *redact.Redactor) (HostDoc, error) {
+func (in *AnalysisInput) buildHost(hc schema.HostCapture, r *redact.Redactor) HostDoc {
 	doc := HostDoc{CollectedAt: hc.CollectedAt.UTC(), Devices: []DeviceDoc{}}
 
 	previous := map[string]*smart.Device{}
@@ -293,7 +291,7 @@ func (in *AnalysisInput) buildHost(hc schema.HostCapture, r *redact.Redactor) (H
 		doc.PreviousCollectedAt = &t
 		for path, raw := range hc.Previous.SMART {
 			if d, fail := smart.Parse(raw, path); fail == nil {
-				previous[deviceIdentity(d)] = d
+				previous[d.Key()] = d
 			}
 		}
 	}
@@ -331,7 +329,7 @@ func (in *AnalysisInput) buildHost(hc schema.HostCapture, r *redact.Redactor) (H
 			HealthPassed: d.HealthPassed,
 			Current:      counters(d),
 		}
-		if p, ok := previous[deviceIdentity(d)]; ok {
+		if p, ok := previous[d.Key()]; ok {
 			c := counters(p)
 			dd.Previous = &c
 		}
@@ -368,16 +366,7 @@ func (in *AnalysisInput) buildHost(hc schema.HostCapture, r *redact.Redactor) (H
 			Ref: ref, Path: path, Reason: f.Reason, Detail: f.Detail,
 		})
 	}
-	return doc, nil
-}
-
-// deviceIdentity matches a device across readings by model and serial, so a
-// replaced drive at the same path is not compared with its predecessor.
-func deviceIdentity(d *smart.Device) string {
-	if d.SerialNumber != "" {
-		return d.ModelName + "/" + d.SerialNumber
-	}
-	return "path:" + d.Path
+	return doc
 }
 
 func counters(d *smart.Device) Counters {

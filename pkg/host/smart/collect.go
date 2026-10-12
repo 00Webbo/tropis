@@ -97,10 +97,7 @@ func (c *Collector) Available(ctx context.Context) error {
 // scanOutput is the shape of `smartctl --scan -j`.
 type scanOutput struct {
 	Devices []struct {
-		Name     string `json:"name"`
-		InfoName string `json:"info_name"`
-		Type     string `json:"type"`
-		Protocol string `json:"protocol"`
+		Name string `json:"name"`
 	} `json:"devices"`
 }
 
@@ -163,7 +160,8 @@ func (c *Collector) readRaw(ctx context.Context, path string) ([]byte, *DeviceFa
 	return out, nil
 }
 
-// Collect reads SMART data for every named device.
+// Collect reads SMART data for every named device, or with none named, for
+// every device Scan finds.
 //
 // Devices are read in sequence rather than in parallel: SMART queries contend
 // on the same controller, and a sweep is not latency-sensitive.
@@ -171,7 +169,8 @@ func (c *Collector) readRaw(ctx context.Context, path string) ([]byte, *DeviceFa
 // A failure on one device never aborts the sweep — one unreadable disk must
 // not hide the state of the others.
 func (c *Collector) Collect(ctx context.Context, paths []string) (*Report, error) {
-	if err := c.Available(ctx); err != nil {
+	paths, err := c.devices(ctx, paths)
+	if err != nil {
 		return nil, err
 	}
 
@@ -192,16 +191,16 @@ func (c *Collector) Collect(ctx context.Context, paths []string) (*Report, error
 	return report, nil
 }
 
-// CollectAll scans for devices and reads all of them.
-func (c *Collector) CollectAll(ctx context.Context) (*Report, error) {
+// devices checks smartctl is usable and returns paths, or the devices Scan
+// finds when paths is empty.
+func (c *Collector) devices(ctx context.Context, paths []string) ([]string, error) {
 	if err := c.Available(ctx); err != nil {
 		return nil, err
 	}
-	paths, err := c.Scan(ctx)
-	if err != nil {
-		return nil, err
+	if len(paths) > 0 {
+		return paths, nil
 	}
-	return c.Collect(ctx, paths)
+	return c.Scan(ctx)
 }
 
 // classifyRunError maps an execution error onto a FailureReason.
@@ -211,8 +210,6 @@ func classifyRunError(err error) FailureReason {
 		return FailureSmartctlMissing
 	case errors.Is(err, context.DeadlineExceeded):
 		return FailureTimeout
-	case errors.Is(err, context.Canceled):
-		return FailureOther
 	default:
 		return FailureOther
 	}
@@ -230,15 +227,9 @@ func classifyRunError(err error) FailureReason {
 // drive that hangs until the timeout, above all — is returned in failed
 // instead, because it is a finding and must not silently vanish.
 func (c *Collector) CollectRaw(ctx context.Context, paths []string) (raw map[string][]byte, failed []DeviceFailure, err error) {
-	if err := c.Available(ctx); err != nil {
+	paths, err = c.devices(ctx, paths)
+	if err != nil {
 		return nil, nil, err
-	}
-	if len(paths) == 0 {
-		scanned, err := c.Scan(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-		paths = scanned
 	}
 	raw = make(map[string][]byte, len(paths))
 	for _, path := range paths {

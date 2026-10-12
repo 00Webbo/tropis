@@ -14,7 +14,7 @@ import (
 // StateFile is the file, within a state directory, holding previous readings.
 const StateFile = "smart-state.json"
 
-// LoadState reads previous readings from dir, keyed by DeviceKey.
+// LoadState reads previous readings from dir, keyed by smart.Device.Key.
 //
 // A missing state file is not an error: it is the first run, and growth rules
 // simply stay silent until there is something to compare against. A corrupt
@@ -51,7 +51,7 @@ func SaveState(dir string, previous map[string]*smart.Device, report *smart.Repo
 	if report != nil {
 		for i := range report.Devices {
 			d := report.Devices[i]
-			next[DeviceKey(&d)] = &d
+			next[d.Key()] = &d
 		}
 	}
 
