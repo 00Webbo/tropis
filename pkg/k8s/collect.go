@@ -154,12 +154,17 @@ func (c *Collector) events(ctx context.Context, node *corev1.Node, pods []corev1
 
 	// Events live in the namespace of their involved object; node events in
 	// "default". Query only namespaces that matter rather than the cluster.
-	namespaces := map[string]bool{metav1.NamespaceDefault: true}
+	namespaces := map[string]bool{}
 	podKeys := map[string]bool{}
 	for _, p := range pods {
 		namespaces[p.Namespace] = true
 		podKeys[p.Namespace+"/"+p.Name] = true
 	}
+	// Where "default" holds none of the node's pods, only node events can
+	// match there, so the server filters them rather than sending every
+	// event in the namespace, for every node, on every sweep.
+	nodeOnly := !namespaces[metav1.NamespaceDefault]
+	namespaces[metav1.NamespaceDefault] = true
 	nsList := make([]string, 0, len(namespaces))
 	for ns := range namespaces {
 		nsList = append(nsList, ns)
@@ -168,7 +173,11 @@ func (c *Collector) events(ctx context.Context, node *corev1.Node, pods []corev1
 
 	var matched []corev1.Event
 	for _, ns := range nsList {
-		list, err := c.Client.CoreV1().Events(ns).List(ctx, metav1.ListOptions{})
+		var opts metav1.ListOptions
+		if ns == metav1.NamespaceDefault && nodeOnly {
+			opts.FieldSelector = fields.Set{"involvedObject.kind": "Node", "involvedObject.name": node.Name}.String()
+		}
+		list, err := c.Client.CoreV1().Events(ns).List(ctx, opts)
 		if err != nil {
 			return nil, fmt.Errorf("list events in %q: %w", ns, err)
 		}

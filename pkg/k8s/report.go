@@ -49,6 +49,10 @@ func (w *ReportWriter) Write(ctx context.Context, v tropis.Verdict) (*tropis.Ver
 	}
 	reports := w.Client.Resource(ReportGVR)
 
+	// A label on the relationship lets `kubectl get nhr -l
+	// tropis.io/relationship=causal` find the nodes that matter.
+	const relLabel = "tropis.io/relationship"
+
 	var previous *tropis.Verdict
 	obj, err := reports.Get(ctx, v.Node, metav1.GetOptions{})
 	switch {
@@ -57,8 +61,11 @@ func (w *ReportWriter) Write(ctx context.Context, v tropis.Verdict) (*tropis.Ver
 			"apiVersion": Group + "/" + Version,
 			"kind":       Kind,
 			"metadata": map[string]any{
-				"name":   v.Node,
-				"labels": map[string]any{"app.kubernetes.io/managed-by": "tropis"},
+				"name": v.Node,
+				"labels": map[string]any{
+					"app.kubernetes.io/managed-by": "tropis",
+					relLabel:                       string(v.Relationship),
+				},
 			},
 			"spec": map[string]any{"nodeName": v.Node},
 		}}
@@ -75,14 +82,12 @@ func (w *ReportWriter) Write(ctx context.Context, v tropis.Verdict) (*tropis.Ver
 		}
 	}
 
-	// A label on the relationship lets `kubectl get nhr -l
-	// tropis.io/relationship=causal` find the nodes that matter.
 	labels := obj.GetLabels()
 	if labels == nil {
 		labels = map[string]string{}
 	}
-	if labels["tropis.io/relationship"] != string(v.Relationship) {
-		labels["tropis.io/relationship"] = string(v.Relationship)
+	if labels[relLabel] != string(v.Relationship) {
+		labels[relLabel] = string(v.Relationship)
 		obj.SetLabels(labels)
 		if obj, err = reports.Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
 			return nil, fmt.Errorf("label NodeHealthReport %s: %w", v.Node, err)

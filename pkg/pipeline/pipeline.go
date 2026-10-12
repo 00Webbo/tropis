@@ -132,7 +132,9 @@ type Outcome struct {
 // The Kubernetes capture is taken before pre-filtering, because the
 // Kubernetes-side rules read it, and the same capture is then analysed: a
 // raised node is never fetched twice. Collect is bounded (one field-selected
-// pod list, event lists, and log tails only for failing containers).
+// pod list, event lists, and log tails only for unhealthy containers), but
+// it reads those logs for every node, raised or not: the triggers need the
+// failing containers' logs, and the analysis needs the rest.
 func (p *Pipeline) AnalyzeNode(ctx context.Context, node string, force bool) (Outcome, error) {
 	out := Outcome{Node: node}
 
