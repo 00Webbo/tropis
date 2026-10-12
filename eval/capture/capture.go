@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -71,11 +72,6 @@ func refuse(format string, a ...any) error {
 	return fmt.Errorf("%w: "+format, append([]any{ErrRefused}, a...)...)
 }
 
-// Dir is where a scenario variant's fixture lives.
-func Dir(root, scenario string, variant schema.Variant) string {
-	return filepath.Join(root, scenario+"-"+string(variant))
-}
-
 // Capture reads the node and writes fixture.json and label.json. It returns
 // the directory written.
 func Capture(ctx context.Context, src Sources, req Request) (string, error) {
@@ -105,7 +101,7 @@ func Capture(ctx context.Context, src Sources, req Request) (string, error) {
 		return "", err
 	}
 
-	dir := Dir(req.OutDir, req.Scenario.ID, req.Variant)
+	dir := fixture.Dir(req.OutDir, req.Scenario.ID, req.Variant)
 	if _, err := os.Stat(filepath.Join(dir, fixture.FixtureFile)); err == nil && !req.Force {
 		return "", fmt.Errorf("%s already holds a capture; pass --force to replace it", dir)
 	}
@@ -139,7 +135,7 @@ func Capture(ctx context.Context, src Sources, req Request) (string, error) {
 	if disk != nil {
 		serial = disk.Serial
 	}
-	if hasHardware(req.Scenario, "scarred-sata") {
+	if slices.Contains(req.Scenario.Hardware, "scarred-sata") {
 		if err := CheckStableDefects(req.Scenario.ID, serial, host); err != nil {
 			return "", err
 		}
@@ -161,10 +157,7 @@ func Capture(ctx context.Context, src Sources, req Request) (string, error) {
 		return "", fmt.Errorf("captured fixture is invalid: %w", err)
 	}
 
-	if err := writeJSON(filepath.Join(dir, fixture.FixtureFile), f); err != nil {
-		return "", err
-	}
-	if err := writeJSON(filepath.Join(dir, fixture.LabelFile), label); err != nil {
+	if err := fixture.Write(dir, f, label); err != nil {
 		return "", err
 	}
 
@@ -210,7 +203,7 @@ func buildLabel(req Request, now time.Time) (*schema.Label, error) {
 		// A scenario defined as SMART-visible needs SMART to have been
 		// affected for real. An emulated fault in its place would be a
 		// synthetic fixture wearing a real one's label.
-		if hasHardware(s, "real-sata") && rec.Injection.Params["smartEffect"] != "real" {
+		if slices.Contains(s.Hardware, "real-sata") && rec.Injection.Params["smartEffect"] != "real" {
 			return nil, refuse("scenario %s requires a real SMART effect, but the injection recorded smartEffect=%q",
 				s.ID, rec.Injection.Params["smartEffect"])
 		}
@@ -220,15 +213,6 @@ func buildLabel(req Request, now time.Time) (*schema.Label, error) {
 		return nil, err
 	}
 	return &l, nil
-}
-
-func hasHardware(s scenarios.Scenario, h string) bool {
-	for _, x := range s.Hardware {
-		if x == h {
-			return true
-		}
-	}
-	return false
 }
 
 // environment records the rig. What the live node reports wins over the
@@ -274,17 +258,6 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
-}
-
-func writeJSON(path string, v any) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, append(b, '\n'), 0o644)
 }
 
 // LoadInjectionRecord reads a record written by a hack/inject script.
