@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -102,7 +103,7 @@ func violations(path string, rules []rbacv1.PolicyRule) []string {
 				continue
 			}
 			for _, res := range rule.Resources {
-				if !ownResources[res] || !contains(rule.APIGroups, "tropis.io") {
+				if !ownResources[res] || !slices.Contains(rule.APIGroups, "tropis.io") {
 					out = append(out, fmt.Sprintf("%s: write verb %q on %v/%s; Tropis is read-only outside its own reports",
 						path, verb, rule.APIGroups, res))
 				}
@@ -118,15 +119,6 @@ func violations(path string, rules []rbacv1.PolicyRule) []string {
 		}
 	}
 	return out
-}
-
-func contains(list []string, s string) bool {
-	for _, v := range list {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }
 
 // The check must actually catch a violation.

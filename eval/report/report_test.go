@@ -42,8 +42,8 @@ func TestMarkdownOnDevCorpus(t *testing.T) {
 		}
 	}
 	// Every case appears.
-	if got := strings.Count(md, "| npd-"); got < 60 {
-		t.Errorf("report lists %d case rows, want 60", got)
+	if got := strings.Count(md, "| npd-"); got < len(res.Cases) {
+		t.Errorf("report lists %d case rows, want %d", got, len(res.Cases))
 	}
 	if strings.Contains(md, "| Thinking |") || strings.Contains(md, "| Effort |") {
 		t.Error("report shows backend settings that were not set")

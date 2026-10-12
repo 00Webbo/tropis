@@ -3,6 +3,7 @@ package scenarios
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -61,7 +62,7 @@ func TestSMARTVisibleScenariosNeedRealHardware(t *testing.T) {
 	for _, s := range all {
 		smartVisible := s.Synthetic.SMART == "pending-new" || s.Synthetic.SMART == "realloc-growing"
 		injected := s.Inject != nil && (s.Inject.Script == "pending-sectors.sh" || s.Inject.Script == "degradation.sh")
-		if smartVisible && injected && !contains(s.Hardware, "real-sata") {
+		if smartVisible && injected && !slices.Contains(s.Hardware, "real-sata") {
 			t.Errorf("%s: expects SMART to change but does not require real-sata hardware", s.ID)
 		}
 	}
@@ -80,7 +81,7 @@ func TestExpectSMARTMatchesSyntheticArchetype(t *testing.T) {
 			continue
 		}
 		want, ok := grows[s.Synthetic.SMART]
-		if !ok || !contains(s.ExpectSMART, want) {
+		if !ok || !slices.Contains(s.ExpectSMART, want) {
 			t.Errorf("%s: expectSmart %v does not include what synthetic.smart %q grows", s.ID, s.ExpectSMART, s.Synthetic.SMART)
 		}
 	}
@@ -94,7 +95,7 @@ func TestScarredSATAMatchesSyntheticArchetype(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, s := range all {
-		if contains(s.Hardware, "scarred-sata") != (s.Synthetic.SMART == "realloc-stable") {
+		if slices.Contains(s.Hardware, "scarred-sata") != (s.Synthetic.SMART == "realloc-stable") {
 			t.Errorf("%s: hardware %v does not match synthetic.smart %q", s.ID, s.Hardware, s.Synthetic.SMART)
 		}
 	}
@@ -157,13 +158,4 @@ scenarios:
 			t.Errorf("error should mention %q:\n%v", want, err)
 		}
 	}
-}
-
-func contains(list []string, s string) bool {
-	for _, v := range list {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }

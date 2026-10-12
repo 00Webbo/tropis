@@ -30,8 +30,6 @@ func verdict(rel schema.Relationship, layer schema.Layer) schema.Verdict {
 	return v
 }
 
-func ptr(v schema.Verdict) *schema.Verdict { return &v }
-
 func TestPolicy(t *testing.T) {
 	causalHost := verdict(schema.RelationshipCausal, schema.LayerHost)
 	causalK8s := verdict(schema.RelationshipCausal, schema.LayerKubernetes)
@@ -48,13 +46,13 @@ func TestPolicy(t *testing.T) {
 		{"first verdict causal", PolicyCausal, nil, causalHost, KindNew},
 		{"first verdict coincidental is quiet", PolicyCausal, nil, coincidental, ""},
 		{"first verdict coincidental under any", PolicyAny, nil, coincidental, KindNew},
-		{"unchanged causal is quiet", PolicyCausal, ptr(causalHost), causalHost, ""},
-		{"becomes causal", PolicyCausal, ptr(insufficient), causalHost, KindChanged},
-		{"causal layer changes", PolicyCausal, ptr(causalHost), causalK8s, KindChanged},
-		{"causal clears", PolicyCausal, ptr(causalHost), coincidental, KindCleared},
-		{"non-causal shuffle is quiet", PolicyCausal, ptr(insufficient), coincidental, ""},
-		{"non-causal shuffle under any", PolicyAny, ptr(insufficient), coincidental, KindChanged},
-		{"unchanged under any is still quiet", PolicyAny, ptr(coincidental), coincidental, ""},
+		{"unchanged causal is quiet", PolicyCausal, new(causalHost), causalHost, ""},
+		{"becomes causal", PolicyCausal, new(insufficient), causalHost, KindChanged},
+		{"causal layer changes", PolicyCausal, new(causalHost), causalK8s, KindChanged},
+		{"causal clears", PolicyCausal, new(causalHost), coincidental, KindCleared},
+		{"non-causal shuffle is quiet", PolicyCausal, new(insufficient), coincidental, ""},
+		{"non-causal shuffle under any", PolicyAny, new(insufficient), coincidental, KindChanged},
+		{"unchanged under any is still quiet", PolicyAny, new(coincidental), coincidental, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
