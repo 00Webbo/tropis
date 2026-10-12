@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 
 	"github.com/00Webbo/tropis/pkg/k8s/triggers"
 	"github.com/00Webbo/tropis/pkg/schema"
@@ -84,7 +85,7 @@ func collector(objs ...runtime.Object) (*Collector, *fake.Clientset) {
 }
 
 func TestCollect(t *testing.T) {
-	c, _ := collector(
+	c, cs := collector(
 		node(),
 		pod("db", "postgres-0", "worker-02", crashLooping("app")),
 		pod("web", "frontend-1", "worker-02", healthy("app")),
@@ -123,6 +124,15 @@ func TestCollect(t *testing.T) {
 	want := []string{"NodeHasDiskPressure", "Back-off restarting failed container"}
 	if strings.Join(msgs, "|") != strings.Join(want, "|") {
 		t.Errorf("events = %v, want %v (oldest first, this node only, within window)", msgs, want)
+	}
+	// None of the node's pods are in "default", so only its own events are
+	// asked for there.
+	for _, a := range cs.Actions() {
+		if l, ok := a.(k8stesting.ListAction); ok && a.GetResource().Resource == "events" && a.GetNamespace() == "default" {
+			if got := l.GetListRestrictions().Fields.String(); got != "involvedObject.kind=Node,involvedObject.name=worker-02" {
+				t.Errorf("default-namespace events listed with field selector %q", got)
+			}
+		}
 	}
 
 	// Logs only for the unhealthy container, current and previous.
