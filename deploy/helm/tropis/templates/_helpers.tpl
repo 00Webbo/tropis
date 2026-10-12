@@ -65,6 +65,8 @@ containers:
         valueFrom: {fieldRef: {fieldPath: spec.nodeName}}
       - name: TROPIS_COLLECTOR_SELECTOR
         value: {{ include "tropis.collectorSelectorString" .root | quote }}
+      - name: TROPIS_COLLECTOR_PORT
+        value: {{ .root.Values.collector.port | quote }}
       - name: TROPIS_BACKEND
         value: {{ .root.Values.backend.provider | quote }}
       {{- with .root.Values.backend.model }}

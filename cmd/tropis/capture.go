@@ -121,7 +121,7 @@ func runCapture(args []string, stdout, stderr io.Writer) int {
 		return fail(stderr, "%v", err)
 	}
 	dir, err := capture.Capture(ctx, capture.Sources{
-		Host: &k8s.HostFetcher{Client: cs, Namespace: cf.namespace, Selector: cf.selector},
+		Host: cf.hostFetcher(cs),
 		K8s:  &k8s.Collector{Client: cs},
 	}, capture.Request{
 		Scenario:  s,

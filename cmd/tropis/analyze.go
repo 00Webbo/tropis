@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -33,6 +34,7 @@ type clusterFlags struct {
 	kubeconfig string
 	namespace  string
 	selector   string
+	port       int
 }
 
 func (c *clusterFlags) register(fs *flag.FlagSet) {
@@ -47,6 +49,16 @@ func (c *clusterFlags) register(fs *flag.FlagSet) {
 		sel = k8s.DefaultCollectorSelector
 	}
 	fs.StringVar(&c.selector, "collector-selector", sel, "label selector for tropis-collector pods")
+	port := k8s.DefaultCollectorPort
+	if p, err := strconv.Atoi(os.Getenv("TROPIS_COLLECTOR_PORT")); err == nil {
+		port = p
+	}
+	fs.IntVar(&c.port, "collector-port", port, "port tropis-collector pods listen on (env TROPIS_COLLECTOR_PORT)")
+}
+
+// hostFetcher reaches the collector pods these flags describe.
+func (c *clusterFlags) hostFetcher(cs kubernetes.Interface) *k8s.HostFetcher {
+	return &k8s.HostFetcher{Client: cs, Namespace: c.namespace, Selector: c.selector, Port: c.port}
 }
 
 func (c *clusterFlags) clients() (kubernetes.Interface, dynamic.Interface, error) {
@@ -84,7 +96,7 @@ func (c *clusterFlags) pipeline(bf *backendFlags, write bool) (*pipeline.Pipelin
 		return nil, nil, err
 	}
 	p := &pipeline.Pipeline{
-		Host:       &k8s.HostFetcher{Client: cs, Namespace: c.namespace, Selector: c.selector},
+		Host:       c.hostFetcher(cs),
 		K8s:        &k8s.Collector{Client: cs},
 		Backend:    b,
 		Thresholds: prefilter.DefaultThresholds(),
