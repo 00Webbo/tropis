@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -321,4 +322,15 @@ func TestServeHistory(t *testing.T) {
 	if len(cache.history) > n {
 		t.Errorf("history grew from %d to %d within one interval", n, len(cache.history))
 	}
+}
+
+// --history-interval=0 means the default, as in record, not a panic.
+func TestRefreshLoopNonPositiveInterval(t *testing.T) {
+	cache := &captureCache{
+		collect: func(context.Context) (map[string][]byte, []smart.DeviceFailure, error) { return nil, nil, nil },
+		now:     time.Now,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	cache.refreshLoop(ctx, 0, io.Discard)
 }

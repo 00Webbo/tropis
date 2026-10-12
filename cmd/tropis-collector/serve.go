@@ -101,6 +101,10 @@ func (c *captureCache) record(snap schema.HostSnapshot) {
 // refreshLoop collects on a fixed cadence, so history accumulates whether or
 // not anyone is asking for it.
 func (c *captureCache) refreshLoop(ctx context.Context, every time.Duration, logw io.Writer) {
+	// Same default as record: time.NewTicker panics on a non-positive period.
+	if every <= 0 {
+		every = time.Hour
+	}
 	t := time.NewTicker(every)
 	defer t.Stop()
 	for {
