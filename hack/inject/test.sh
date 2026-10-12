@@ -4,8 +4,9 @@
 #   hack/inject/test.sh <tropis binary> <tropis-collector binary>
 #
 # Must run as root with device-mapper available, inside a disposable
-# privileged container or VM — never on a machine you care about. CI runs it
-# in a privileged container. It refuses to run otherwise.
+# privileged container or VM — never on a machine you care about. `make
+# inject-test` runs it in a privileged container, locally and in CI. It
+# refuses to run otherwise.
 #
 # For each fault: start, check the JSON record, check the fault's actual
 # effect on I/O, stop, check the effect is gone. Then check the refusals: a
@@ -90,8 +91,8 @@ echo "bad-sector tool: $( [ "${TROPIS_NO_DUST:-}" = 1 ] && echo "dm-error (force
 rec="$(BAD_BLOCKS="200000 200001" "$HERE/read-errors.sh" start)" && check_record read-errors "$rec" disk.read_errors no || fail "read-errors start"
 mechanism="$(printf '%s' "$rec" | jq -r .injection.tool)"
 echo "bad-sector mechanism in use: $mechanism"
-# CI sets TROPIS_REQUIRE_DUST on the run meant to cover dm-dust, so a kernel
-# without it fails loudly instead of quietly testing the fallback twice.
+# `make inject-test REQUIRE_DUST=1` sets this on the rig, so a kernel without
+# dm-dust fails loudly instead of quietly testing the fallback.
 if [ "${TROPIS_REQUIRE_DUST:-}" = 1 ] && [ "$mechanism" != dm-dust ]; then
 	fail "dm-dust was required but $mechanism was used"
 fi
