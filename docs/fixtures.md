@@ -15,10 +15,10 @@ One directory per scenario variant:
 
 ```
 eval/fixtures/
-  disk-realloc-growth-01-npd-absent/
+  pending-sectors-postgres-npd-absent/
     fixture.json      # the capture — no ground truth
     label.json        # ground truth — withheld during analysis
-  disk-realloc-growth-01-npd-present/
+  pending-sectors-postgres-npd-present/
     fixture.json
     label.json
 ```
@@ -98,7 +98,7 @@ matters, and capturing it later would mean re-running every injection.
 | `scenarioId` | Must match the fixture |
 | `relationship` | `causal`, `coincidental`, or `insufficient_evidence` |
 | `rootCauseLayer` | `host` or `kubernetes` — set only when causal |
-| `faultType` | What was injected, e.g. `disk.reallocated_growth` |
+| `faultType` | What was injected, e.g. `disk.pending_sectors` |
 | `injection` | Machine-readable record emitted by the injection script |
 | `notes` | What was done and what was expected |
 
@@ -118,7 +118,7 @@ surfaces far too late to be cheap to fix.
 
 Fixtures marked `"synthetic": true` are fabricated for development. They are
 loaded normally by `LoadCorpus`, and **rejected** by `PublishableCorpus`,
-which report generation uses.
+which `tropis eval --publishable` uses.
 
 Fabricated SMART output and loop devices are fine for developing collectors
 and rules, and are used extensively in unit tests. They must never enter

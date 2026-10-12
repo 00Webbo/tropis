@@ -38,8 +38,9 @@ require it.
 These are not style preferences. A change violating one of them will be
 rejected regardless of its quality.
 
-1. **Tropis is read-only.** No remediation, no cordoning, no draining, no
-   writes to cluster state other than its own `NodeHealthReport` resources.
+1. **Tropis is read-only.** No remediation, no cordoning, no draining. The
+   writes it may make are listed once, in the rules table in
+   [AGENTS.md](AGENTS.md) and in [SECURITY.md](SECURITY.md).
 2. **No synthetic data in `eval/fixtures/`.** Loop devices and fabricated
    SMART output are fine for unit tests and are used extensively. They must
    never enter the evaluation corpus. The published accuracy numbers are the
