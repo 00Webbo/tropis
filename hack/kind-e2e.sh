@@ -5,7 +5,7 @@
 #   hack/kind-e2e.sh            create a cluster, test, delete it
 #   KEEP=1 hack/kind-e2e.sh     leave the cluster running afterwards
 #
-# Needs docker, kind, kubectl and helm.
+# Needs docker, kind, kubectl, helm and Go (the capture step runs `go run`).
 set -euo pipefail
 
 CLUSTER="${CLUSTER:-tropis-e2e}"
@@ -23,11 +23,12 @@ trap cleanup EXIT
 
 step() { echo; echo "==> $*"; }
 
-step "building $IMAGE"
-docker build -q --build-arg VERSION=e2e -t "$IMAGE" .
-
-step "creating kind cluster $CLUSTER"
+# The image builds while the cluster starts: each takes about a minute.
+step "building $IMAGE and creating kind cluster $CLUSTER"
+docker build -q --build-arg VERSION=e2e -t "$IMAGE" . &
+build=$!
 kind create cluster --name "$CLUSTER" --wait 180s
+wait "$build"
 kind load docker-image "$IMAGE" --name "$CLUSTER"
 
 step "installing the chart with the mock backend"

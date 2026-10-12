@@ -94,7 +94,7 @@ inject-test: build-linux ## Run the fault-injection scripts against a loop devic
 			bash /repo/hack/inject/test.sh /repo/bin/linux/tropis /repo/bin/linux/tropis-collector'
 
 .PHONY: kind-e2e
-kind-e2e: ## Install on a fresh kind cluster and require a verdict (docker, kind, kubectl, helm; KEEP=1 keeps the cluster)
+kind-e2e: ## Install on a fresh kind cluster and require a verdict (docker, kind, kubectl, helm, go; KEEP=1 keeps the cluster)
 	bash hack/kind-e2e.sh
 
 .PHONY: smart-samples

@@ -16,7 +16,11 @@ ARG VERSION=dev
 ARG TARGETOS
 ARG TARGETARCH
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH
-RUN CGO_ENABLED=0 go build -trimpath \
+# The modules above are an ordinary layer, which a layer cache (CI's) keeps;
+# the compile cache is a cache mount, so a local rebuild is incremental. Not
+# part of the image either way.
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build -trimpath \
       -ldflags "-s -w -X github.com/00Webbo/tropis/pkg/reason.AgentVersion=${VERSION}" \
       -o /out/tropis ./cmd/tropis && \
     CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" \
