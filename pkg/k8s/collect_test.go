@@ -308,13 +308,8 @@ func TestCollectorPod(t *testing.T) {
 	}
 }
 
-func TestNPDConditionsAndNodes(t *testing.T) {
-	c, _ := collector(node(corev1.NodeCondition{Type: "ReadonlyFilesystem", Status: corev1.ConditionTrue}),
-		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "a-node"}})
-	conds, err := c.NPDConditions(context.Background(), "worker-02")
-	if err != nil || len(conds) != 1 || !strings.Contains(conds[0].String(), "ReadonlyFilesystem") {
-		t.Errorf("NPDConditions = %v, %v", conds, err)
-	}
+func TestNodes(t *testing.T) {
+	c, _ := collector(node(), &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "a-node"}})
 	names, err := c.Nodes(context.Background())
 	if err != nil || strings.Join(names, ",") != "a-node,worker-02" {
 		t.Errorf("Nodes = %v, %v", names, err)

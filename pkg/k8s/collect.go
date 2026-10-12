@@ -23,14 +23,15 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/00Webbo/tropis/pkg/k8s/triggers"
 	"github.com/00Webbo/tropis/pkg/schema"
 )
 
-// Defaults bounding how much log is read per container.
+// Bounds on how much log is read per container, and how far back events go.
 const (
-	DefaultLogTailLines  = 200
-	DefaultLogLimitBytes = 64 * 1024
-	DefaultEventWindow   = 6 * time.Hour
+	logTailLines  = 200
+	logLimitBytes = 64 * 1024
+	eventWindow   = 6 * time.Hour
 )
 
 // kubeletConditions are the node condition types the kubelet itself sets.
@@ -47,14 +48,6 @@ var kubeletConditions = map[corev1.NodeConditionType]bool{
 // Collector reads the Kubernetes-layer state for a node.
 type Collector struct {
 	Client kubernetes.Interface
-
-	// LogTailLines and LogLimitBytes bound each log read. Zero uses defaults.
-	LogTailLines  int64
-	LogLimitBytes int64
-
-	// EventWindow limits events to those seen within this window before
-	// collection. Zero uses DefaultEventWindow.
-	EventWindow time.Duration
 
 	// Now is the clock; nil uses time.Now.
 	Now func() time.Time
@@ -157,11 +150,7 @@ func splitConditions(conds []corev1.NodeCondition) (kubelet, external []corev1.N
 // events returns events for the node and its pods within the event window,
 // oldest first.
 func (c *Collector) events(ctx context.Context, node *corev1.Node, pods []corev1.Pod) ([]schema.RawJSON, error) {
-	window := c.EventWindow
-	if window <= 0 {
-		window = DefaultEventWindow
-	}
-	cutoff := c.now().Add(-window)
+	cutoff := c.now().Add(-eventWindow)
 
 	// Events live in the namespace of their involved object; node events in
 	// "default". Query only namespaces that matter rather than the cluster.
@@ -186,12 +175,12 @@ func (c *Collector) events(ctx context.Context, node *corev1.Node, pods []corev1
 		for _, e := range list.Items {
 			relevant := (e.InvolvedObject.Kind == "Node" && e.InvolvedObject.Name == node.Name) ||
 				(e.InvolvedObject.Kind == "Pod" && podKeys[e.InvolvedObject.Namespace+"/"+e.InvolvedObject.Name])
-			if relevant && !eventTime(e).Before(cutoff) {
+			if relevant && !triggers.EventTime(e).Before(cutoff) {
 				matched = append(matched, e)
 			}
 		}
 	}
-	sort.SliceStable(matched, func(i, j int) bool { return eventTime(matched[i]).Before(eventTime(matched[j])) })
+	sort.SliceStable(matched, func(i, j int) bool { return triggers.EventTime(matched[i]).Before(triggers.EventTime(matched[j])) })
 
 	out := make([]schema.RawJSON, 0, len(matched))
 	for i := range matched {
@@ -204,17 +193,6 @@ func (c *Collector) events(ctx context.Context, node *corev1.Node, pods []corev1
 	return out, nil
 }
 
-// eventTime is the most recent time an event was observed. Events carry
-// several timestamps, populated inconsistently across emitters.
-func eventTime(e corev1.Event) time.Time {
-	for _, t := range []time.Time{e.LastTimestamp.Time, e.EventTime.Time, e.FirstTimestamp.Time, e.CreationTimestamp.Time} {
-		if !t.IsZero() {
-			return t
-		}
-	}
-	return time.Time{}
-}
-
 // logs reads logs for unhealthy containers only.
 //
 // Healthy containers are skipped deliberately. Their logs rarely explain a
@@ -223,14 +201,6 @@ func eventTime(e corev1.Event) time.Time {
 // container, and the previous one too wherever the container has restarted —
 // which is usually where the crash is.
 func (c *Collector) logs(ctx context.Context, pods []corev1.Pod) map[string]string {
-	tail, limit := c.LogTailLines, c.LogLimitBytes
-	if tail <= 0 {
-		tail = DefaultLogTailLines
-	}
-	if limit <= 0 {
-		limit = DefaultLogLimitBytes
-	}
-
 	out := map[string]string{}
 	for _, p := range pods {
 		statuses := append(append([]corev1.ContainerStatus{}, p.Status.InitContainerStatuses...), p.Status.ContainerStatuses...)
@@ -239,11 +209,11 @@ func (c *Collector) logs(ctx context.Context, pods []corev1.Pod) map[string]stri
 				continue
 			}
 			key := p.Namespace + "/" + p.Name + "/" + s.Name
-			if text, ok := c.readLog(ctx, p, s.Name, false, tail, limit); ok {
+			if text, ok := c.readLog(ctx, p, s.Name, false); ok {
 				out[key] = text
 			}
 			if s.RestartCount > 0 {
-				if text, ok := c.readLog(ctx, p, s.Name, true, tail, limit); ok {
+				if text, ok := c.readLog(ctx, p, s.Name, true); ok {
 					out[key+"/previous"] = text
 				}
 			}
@@ -252,7 +222,8 @@ func (c *Collector) logs(ctx context.Context, pods []corev1.Pod) map[string]stri
 	return out
 }
 
-func (c *Collector) readLog(ctx context.Context, p corev1.Pod, container string, previous bool, tail, limit int64) (string, bool) {
+func (c *Collector) readLog(ctx context.Context, p corev1.Pod, container string, previous bool) (string, bool) {
+	tail, limit := int64(logTailLines), int64(logLimitBytes)
 	req := c.Client.CoreV1().Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{
 		Container:  container,
 		Previous:   previous,
@@ -316,26 +287,6 @@ func marshalClean(obj metav1.Object) (schema.RawJSON, error) {
 		return nil, fmt.Errorf("marshal %s: %w", obj.GetName(), err)
 	}
 	return raw, nil
-}
-
-// NPDConditions returns only the externally set conditions on a node — in
-// practice node-problem-detector's — for the pre-filter. It is the cheap
-// read a sweep makes for every node, before deciding which to analyse.
-func (c *Collector) NPDConditions(ctx context.Context, nodeName string) ([]schema.RawJSON, error) {
-	node, err := c.Client.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("get node %q: %w", nodeName, err)
-	}
-	_, external := splitConditions(node.Status.Conditions)
-	out := make([]schema.RawJSON, 0, len(external))
-	for i := range external {
-		raw, err := json.Marshal(external[i])
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, raw)
-	}
-	return out, nil
 }
 
 // Nodes lists every node name, sorted.

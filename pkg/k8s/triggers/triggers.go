@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -310,4 +311,15 @@ func decodeEvents(raw []schema.RawJSON) []corev1.Event {
 		}
 	}
 	return out
+}
+
+// EventTime is the most recent time an event was observed. Events carry
+// several timestamps, populated inconsistently across emitters.
+func EventTime(e corev1.Event) time.Time {
+	for _, t := range []time.Time{e.LastTimestamp.Time, e.EventTime.Time, e.FirstTimestamp.Time, e.CreationTimestamp.Time} {
+		if !t.IsZero() {
+			return t
+		}
+	}
+	return time.Time{}
 }
