@@ -13,9 +13,13 @@ import (
 //
 // v2: prompt text identical to v1; trigger names (pre-filter rule IDs and NPD
 // conditions) were removed from the model input.
-const PromptVersion = "v2"
+//
+// v3: host.unreadable also carries devices smartctl produced no output for
+// (a drive that hung until the timeout), and the prompt says what a timeout
+// means.
+const PromptVersion = "v3"
 
-//go:embed prompts/v2.md
+//go:embed prompts/v3.md
 var systemPrompt string
 
 // SystemPrompt returns the versioned system prompt. It is identical for every

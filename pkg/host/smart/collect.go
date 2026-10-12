@@ -63,6 +63,12 @@ func (c *Collector) run(ctx context.Context, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, c.binary(), args...)
 	out, err := cmd.Output()
 
+	// A process killed on timeout or cancellation also ends in an ExitError,
+	// with partial output: that is a hung device, not a smartctl finding.
+	if err != nil && ctx.Err() != nil {
+		return out, fmt.Errorf("%w: %w", ctx.Err(), err)
+	}
+
 	// A non-zero exit is normal and expected: smartctl's status is a bitfield
 	// of findings, and the output is still valid JSON. Only a failure to run
 	// the binary at all is an error here.
@@ -129,6 +135,16 @@ func (c *Collector) Scan(ctx context.Context) ([]string, error) {
 // neither. A device that cannot be read is a finding in its own right, not an
 // error to be swallowed.
 func (c *Collector) CollectDevice(ctx context.Context, path string) (*Device, *DeviceFailure) {
+	out, fail := c.readRaw(ctx, path)
+	if fail != nil {
+		return nil, fail
+	}
+	return Parse(out, path)
+}
+
+// readRaw runs smartctl against one device. A run that failed or produced
+// nothing is a DeviceFailure; anything else is left for Parse to classify.
+func (c *Collector) readRaw(ctx context.Context, path string) ([]byte, *DeviceFailure) {
 	out, err := c.run(ctx, "-j", "-a", path)
 	if err != nil {
 		return nil, &DeviceFailure{
@@ -144,7 +160,7 @@ func (c *Collector) CollectDevice(ctx context.Context, path string) (*Device, *D
 			Detail: "smartctl produced no output",
 		}
 	}
-	return Parse(out, path)
+	return out, nil
 }
 
 // Collect reads SMART data for every named device.
@@ -209,29 +225,32 @@ func classifyRunError(err error) FailureReason {
 // analysis and fixture replay share one parsing path: a fixture is then a
 // faithful stand-in for a live node, and the parser is exercised on replay.
 //
-// Devices whose output is empty are omitted; everything else, including
-// smartctl's own error envelopes, is returned for the parser to classify.
-func (c *Collector) CollectRaw(ctx context.Context, paths []string) (map[string][]byte, error) {
+// smartctl's own error envelopes are returned for the parser to classify. A
+// device smartctl could not be run against, or that produced no output — a
+// drive that hangs until the timeout, above all — is returned in failed
+// instead, because it is a finding and must not silently vanish.
+func (c *Collector) CollectRaw(ctx context.Context, paths []string) (raw map[string][]byte, failed []DeviceFailure, err error) {
 	if err := c.Available(ctx); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(paths) == 0 {
 		scanned, err := c.Scan(ctx)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		paths = scanned
 	}
-	out := make(map[string][]byte, len(paths))
+	raw = make(map[string][]byte, len(paths))
 	for _, path := range paths {
 		if err := ctx.Err(); err != nil {
-			return out, err
+			return raw, failed, err
 		}
-		data, err := c.run(ctx, "-j", "-a", path)
-		if err != nil || len(strings.TrimSpace(string(data))) == 0 {
+		data, fail := c.readRaw(ctx, path)
+		if fail != nil {
+			failed = append(failed, *fail)
 			continue
 		}
-		out[path] = data
+		raw[path] = data
 	}
-	return out, nil
+	return raw, failed, nil
 }

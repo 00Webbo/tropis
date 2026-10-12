@@ -120,6 +120,12 @@ type HostCapture struct {
 	// regression, which is half of what the corpus is for.
 	SMART map[string]RawJSON `json:"smart"`
 
+	// Unreadable records devices smartctl produced no output for, keyed by
+	// device path: above all a drive that hung until the collector's
+	// timeout. Such a device has no entry in SMART, and without this it
+	// would vanish from the capture instead of being reported.
+	Unreadable map[string]CollectionFailure `json:"unreadable,omitempty"`
+
 	// CollectedAt is when the host capture was taken.
 	CollectedAt time.Time `json:"collectedAt"`
 
@@ -131,6 +137,15 @@ type HostCapture struct {
 	// coincidental and a causal verdict. The collector keeps an hourly
 	// history and supplies the oldest reading it holds, up to a day back.
 	Previous *HostSnapshot `json:"previous,omitempty"`
+}
+
+// CollectionFailure is why smartctl produced nothing for a device.
+type CollectionFailure struct {
+	// Reason classifies the failure, as smart.FailureReason (for example
+	// "timeout").
+	Reason string `json:"reason"`
+	// Detail is the underlying error message.
+	Detail string `json:"detail,omitempty"`
 }
 
 // HostSnapshot is an earlier raw SMART capture.

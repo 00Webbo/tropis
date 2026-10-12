@@ -409,6 +409,29 @@ func TestBuildInputContent(t *testing.T) {
 	}
 }
 
+// A drive smartctl hung on has no SMART output, but must still reach the
+// model as unreadable, citable like any other device.
+func TestCollectionFailureReachesModelInput(t *testing.T) {
+	req := plantedRequest(t)
+	req.Host.Unreadable = map[string]schema.CollectionFailure{
+		"/dev/sdc": {Reason: "timeout", Detail: "context deadline exceeded: signal: killed"},
+	}
+	in, err := BuildInput(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, _ := in.Document()
+	if len(doc.Host.Unreadable) != 1 {
+		t.Fatalf("unreadable = %+v, want the hung drive", doc.Host.Unreadable)
+	}
+	if u := doc.Host.Unreadable[0]; u.Ref != "smart:/dev/sdc" || u.Reason != "timeout" {
+		t.Errorf("unreadable = %+v", u)
+	}
+	if _, ok := in.lookupRef("smart:/dev/sdc"); !ok {
+		t.Error("the hung drive should be citable")
+	}
+}
+
 // Nodes named by IP keep their real name on the verdict; only the model's
 // view is redacted.
 func TestNodeNamedByIP(t *testing.T) {

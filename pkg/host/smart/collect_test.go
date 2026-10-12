@@ -3,6 +3,8 @@ package smart
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -165,19 +167,35 @@ func TestCollectDeviceEmptyOutput(t *testing.T) {
 	}
 }
 
+// TestMain doubles as a fake smartctl. With TROPIS_FAKE_SMARTCTL=hang the
+// test binary prints half an answer and never finishes, like a drive that
+// hangs on a SMART query.
+func TestMain(m *testing.M) {
+	if os.Getenv("TROPIS_FAKE_SMARTCTL") == "hang" {
+		fmt.Print(`{"smartctl":`)
+		time.Sleep(time.Minute)
+		os.Exit(0)
+	}
+	os.Exit(m.Run())
+}
+
 // A drive that hangs on a SMART query is itself a signal and must not stall
-// the sweep.
+// the sweep. The killed process ends in an ExitError, which must not be
+// mistaken for smartctl's exit-status bitfield.
 func TestCollectDeviceTimeout(t *testing.T) {
-	c := &Collector{runner: func(context.Context, string, ...string) ([]byte, error) {
-		return nil, context.DeadlineExceeded
-	}}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TROPIS_FAKE_SMARTCTL", "hang")
+	c := &Collector{Binary: exe, Timeout: 200 * time.Millisecond}
 
 	_, fail := c.CollectDevice(context.Background(), "/dev/sda")
 	if fail == nil {
 		t.Fatal("expected a failure")
 	}
 	if fail.Reason != FailureTimeout {
-		t.Errorf("reason = %q, want %q", fail.Reason, FailureTimeout)
+		t.Errorf("reason = %q, want %q (%s)", fail.Reason, FailureTimeout, fail.Detail)
 	}
 }
 
