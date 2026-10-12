@@ -21,7 +21,8 @@ make kind-e2e     # install on kind and require a verdict (Docker, kind, kubectl
 ```
 
 `make help` lists everything. No cluster, hardware or API key is needed for
-`make check`.
+`make check`. CI (`.github/workflows/ci.yaml`) only installs tools and calls
+these targets: change a recipe in the Makefile, not in the workflow.
 
 ## Rules, and what enforces them
 
