@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/00Webbo/tropis/pkg/host/prefilter"
+	"github.com/00Webbo/tropis/pkg/host/smart"
 	"github.com/00Webbo/tropis/pkg/schema"
 )
 
@@ -206,9 +207,10 @@ func TestServeHandler(t *testing.T) {
 	calls := 0
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	cache := &captureCache{
-		collect: func(context.Context) (map[string][]byte, error) {
+		collect: func(context.Context) (map[string][]byte, []smart.DeviceFailure, error) {
 			calls++
-			return map[string][]byte{"/dev/sda": []byte(`{"device":{"name":"/dev/sda"}}`)}, nil
+			return map[string][]byte{"/dev/sda": []byte(`{"device":{"name":"/dev/sda"}}`)},
+				[]smart.DeviceFailure{{Path: "/dev/sdb", Reason: smart.FailureTimeout, Detail: "context deadline exceeded"}}, nil
 		},
 		minInterval: time.Minute,
 		now:         func() time.Time { return now },
@@ -237,6 +239,10 @@ func TestServeHandler(t *testing.T) {
 	if !strings.Contains(hc.SMART["/dev/sda"].String(), `"/dev/sda"`) {
 		t.Errorf("raw capture not served verbatim: %v", hc.SMART)
 	}
+	// A hung drive must reach analysis, not vanish from the capture.
+	if f := hc.Unreadable["/dev/sdb"]; f.Reason != string(smart.FailureTimeout) {
+		t.Errorf("collection failure not served: %+v", hc.Unreadable)
+	}
 	get()
 	if calls != 1 {
 		t.Errorf("second request within min-interval collected again: %d calls", calls)
@@ -250,7 +256,9 @@ func TestServeHandler(t *testing.T) {
 
 func TestServeCollectionError(t *testing.T) {
 	cache := &captureCache{
-		collect:     func(context.Context) (map[string][]byte, error) { return nil, errors.New("smartctl not found") },
+		collect: func(context.Context) (map[string][]byte, []smart.DeviceFailure, error) {
+			return nil, nil, errors.New("smartctl not found")
+		},
 		minInterval: time.Minute,
 		now:         time.Now,
 	}
@@ -267,9 +275,9 @@ func TestServeHistory(t *testing.T) {
 	now := time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)
 	reading := 0
 	cache := &captureCache{
-		collect: func(context.Context) (map[string][]byte, error) {
+		collect: func(context.Context) (map[string][]byte, []smart.DeviceFailure, error) {
 			reading++
-			return map[string][]byte{"/dev/sda": []byte(fmt.Sprintf(`{"reading":%d}`, reading))}, nil
+			return map[string][]byte{"/dev/sda": []byte(fmt.Sprintf(`{"reading":%d}`, reading))}, nil, nil
 		},
 		minInterval:     time.Minute,
 		historyInterval: time.Hour,

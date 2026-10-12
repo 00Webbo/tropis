@@ -351,6 +351,22 @@ func (in *AnalysisInput) buildHost(hc schema.HostCapture, r *redact.Redactor) (H
 		}
 		doc.Devices = append(doc.Devices, dd)
 	}
+
+	// Devices smartctl produced nothing for, such as a drive that hung until
+	// the timeout, are unreadable in the same sense as a parse failure.
+	failed := make([]string, 0, len(hc.Unreadable))
+	for p := range hc.Unreadable {
+		failed = append(failed, p)
+	}
+	sort.Strings(failed)
+	for _, path := range failed {
+		f := hc.Unreadable[path]
+		ref := "smart:" + path
+		in.addRef(ref, "smartctl", doc.CollectedAt, 0)
+		doc.Unreadable = append(doc.Unreadable, UnreadableDoc{
+			Ref: ref, Path: path, Reason: f.Reason, Detail: f.Detail,
+		})
+	}
 	return doc, nil
 }
 

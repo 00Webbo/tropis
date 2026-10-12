@@ -34,7 +34,7 @@ const SMARTPath = "/v1/smart"
 // historyMax, and the oldest is served as the capture's Previous.
 type captureCache struct {
 	mu              sync.Mutex
-	collect         func(ctx context.Context) (map[string][]byte, error)
+	collect         func(ctx context.Context) (map[string][]byte, []smart.DeviceFailure, error)
 	minInterval     time.Duration
 	historyInterval time.Duration
 	historyMax      time.Duration
@@ -53,7 +53,7 @@ func (c *captureCache) get(ctx context.Context) (*schema.HostCapture, error) {
 		return c.last, nil
 	}
 
-	raw, err := c.collect(ctx)
+	raw, failed, err := c.collect(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +64,12 @@ func (c *captureCache) get(ctx context.Context) (*schema.HostCapture, error) {
 	c.record(snap)
 
 	capture := &schema.HostCapture{SMART: snap.SMART, CollectedAt: now}
+	for _, f := range failed {
+		if capture.Unreadable == nil {
+			capture.Unreadable = map[string]schema.CollectionFailure{}
+		}
+		capture.Unreadable[f.Path] = schema.CollectionFailure{Reason: string(f.Reason), Detail: f.Detail}
+	}
 	if oldest := c.history[0]; oldest.CollectedAt.Before(now) {
 		prev := oldest
 		capture.Previous = &prev
@@ -145,9 +151,10 @@ func runServe(args []string, _, stderr io.Writer) int {
 	}
 	devices := fs.Args()
 
-	collect := func(ctx context.Context) (map[string][]byte, error) {
+	collect := func(ctx context.Context) (map[string][]byte, []smart.DeviceFailure, error) {
 		if src.fromDir != "" {
-			return rawFromDir(src.fromDir)
+			raw, err := rawFromDir(src.fromDir)
+			return raw, nil, err
 		}
 		c := &smart.Collector{Binary: src.smartctl, Timeout: src.timeout}
 		return c.CollectRaw(ctx, devices)

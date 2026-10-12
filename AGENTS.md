@@ -52,7 +52,7 @@ test guards a rule, do not weaken the test to make a change pass.
   them. Tests fail if they drift.
 - **The prompt is versioned.** Any change to what the model sees that could
   alter its output needs a new `PromptVersion`: the prompt file
-  (`pkg/reason/prompts/v2.md`, which also needs a new file rather than an
+  (`pkg/reason/prompts/v3.md`, which also needs a new file rather than an
   edit in place) and equally the model-input document `reason.BuildInput`
   builds (adding, removing or reshaping a field). Eval results are only
   comparable within a version.
