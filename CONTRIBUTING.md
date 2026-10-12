@@ -74,7 +74,7 @@ issue to discuss it before writing code.
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/),
 because releases are automated from them: release-please reads the messages
 to choose the next version and write the changelog. A CI check enforces the
-format on every commit in a pull request, and on the PR title. Pull requests
+format, and the sign-off, on every commit in a pull request. Pull requests
 are rebase-merged, so each commit lands on `main` as written: make every
 commit a good changelog entry.
 
@@ -103,7 +103,8 @@ feat(notify)!: send the full verdict in webhook payloads
 
 Use the body to explain why. Sign off every commit (`git commit -s`).
 
-`hack/check-commits.sh <base> <head> [title]` runs the same check locally.
+`hack/check-commits.sh <base> <head>` runs the same check locally, sign-off
+included.
 
 ## Licence
 
