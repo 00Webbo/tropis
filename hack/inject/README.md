@@ -125,17 +125,17 @@ does, and `stop` swaps the pass-through back.
 fault's actual effect — that a bad block really fails to read, a delayed read
 really times out, the filesystem really reports corruption — that `stop`
 removes it, and that the refusals hold. It must run as root in a disposable
-privileged container, and refuses to run without `TROPIS_INJECT_TEST=1`:
+privileged container, and refuses to run without `TROPIS_INJECT_TEST=1`.
+`make inject-test` builds the binaries and runs it that way (Docker):
 
 ```sh
-docker run --rm --privileged -v /dev:/dev -v /lib/modules:/lib/modules:ro \
-  -v "$PWD:/repo" -e TROPIS_INJECT_TEST=1 ubuntu:24.04 \
-  bash /repo/hack/inject/test.sh /repo/bin/tropis /repo/bin/tropis-collector
+make inject-test            # dm-dust if the kernel has it, else dm-error
+make inject-test NO_DUST=1  # force the dm-error fallback
 ```
 
-CI runs it twice, the second time with `TROPIS_NO_DUST=1` to force the
-dm-error fallback. GitHub's hosted runners use an Azure kernel built without
-dm-dust, though, so in CI both runs exercise the fallback.
+CI runs `make inject-test`. GitHub's hosted runners use an Azure kernel built
+without dm-dust, so in CI it exercises the dm-error fallback; a runner kernel
+with dm-dust would be tested automatically.
 
 **The dm-dust path is therefore verified on the rig.** Before the capture
 run, on a rig node with a stock Ubuntu kernel:
