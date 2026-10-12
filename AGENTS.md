@@ -17,7 +17,7 @@ make test         # unit tests only
 make generate     # after touching pkg/schema, pkg/k8s/report.go or eval/scenarios
 make eval-dev     # replay the synthetic dev corpus with the mock backend
 make inject-test  # fault-injection scripts, in a privileged container (Docker)
-make kind-e2e     # install on kind and require a verdict (Docker, kind, helm)
+make kind-e2e     # install on kind and require a verdict (Docker, kind, kubectl, helm, Go)
 ```
 
 `make help` lists everything. No cluster, hardware or API key is needed for
