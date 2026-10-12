@@ -10,7 +10,7 @@ drift apart. It is useful on its own, without the rest of Tropis.
 | File | Purpose |
 |---|---|
 | `tropis-smart-check.sh` | Wrapper NPD invokes. Guarantees exit 0/1/2 and one line of at most 80 characters, even if the binary is missing or misbehaves |
-| `smart-plugin-monitor.json` | CustomPluginMonitor config: a temporary event plus a permanent `DiskSMARTProblem` condition |
+| `smart-plugin-monitor.json` | CustomPluginMonitor config: a single permanent `DiskSMARTProblem` condition |
 | `test.sh` | Protocol conformance test, run in CI |
 
 ## Install
@@ -29,6 +29,9 @@ read access to the block devices. See [SECURITY.md](../../SECURITY.md).
 Growth rules (reallocated or uncorrectable counts rising) keep the previous
 reading in `TROPIS_STATE_DIR`, default `/var/lib/tropis`. Without a writable
 state directory they stay silent and the absolute rules still apply.
+The config calls the wrapper from a single rule on purpose: every call
+saves the reading it compares against, so a second rule in the same
+interval would compare the new reading with itself and miss the growth.
 
 ## Why the message is short
 

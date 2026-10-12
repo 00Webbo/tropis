@@ -18,12 +18,6 @@
   ],
   "rules": [
     {
-      "type": "temporary",
-      "reason": "DiskSMARTDegraded",
-      "path": "/usr/local/bin/tropis-smart-check.sh",
-      "timeout": "5m"
-    },
-    {
       "type": "permanent",
       "condition": "DiskSMARTProblem",
       "reason": "DiskSMARTDegraded",

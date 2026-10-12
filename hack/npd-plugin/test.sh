@@ -66,4 +66,23 @@ printf '#!/bin/sh\necho "panic: something broke\nwith a stack trace"\nexit 7\n' 
 chmod +x "$WORK/bad"
 check "misbehaving binary exits 2" 2 "tropis-collector exited 7" TROPIS_COLLECTOR="$WORK/bad"
 
+# Growth across sweeps. Every call loads and saves the same state, so if the
+# monitor config ran the wrapper from more than one rule per interval, the
+# later calls would compare the new reading with itself and miss the growth.
+# Run one call per rule in the config: each must still see it.
+grown=$(mkcase grown)
+sed '/"Reallocated_Sector_Ct"/,/"string": "0"/{s/"value": 0,/"value": 8,/;s/"string": "0"/"string": "8"/;}' \
+	"$DATA/sata-healthy.json" >"$grown/sda.json"
+baseline=$(mkcase baseline sda sata-healthy.json)
+calls=$(grep -c 'tropis-smart-check.sh' "$HERE/smart-plugin-monitor.json")
+growth="TROPIS_COLLECTOR=$BIN TROPIS_STATE_DIR=$WORK/growth-state"
+# shellcheck disable=SC2086
+check "baseline reading exits 0" 0 "SMART OK" $growth TROPIS_ARGS="--from-dir $baseline"
+i=1
+while [ "$i" -le "$calls" ]; do
+	# shellcheck disable=SC2086
+	check "reallocated growth, call $i of $calls per interval" 1 "sda:" $growth TROPIS_ARGS="--from-dir $grown"
+	i=$((i + 1))
+done
+
 exit $fail
