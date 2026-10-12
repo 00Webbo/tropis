@@ -16,7 +16,6 @@ block device. Read the safety section before running any of them.
 | `pending-sectors.sh` | `disk.pending_sectors` | `hdparm --make-bad-sector` on real SATA; dm-dust elsewhere | Real SATA only |
 | `degradation.sh` | `disk.progressive_degradation` | growing bad-sector set, via hdparm or dm-dust | Real SATA only |
 | `fs-corruption.sh` | `disk.fs_corruption` | overwrites an inode on a mounted ext4 | No |
-| `disk-exhaustion.sh` | `disk.exhaustion` | fills the filesystem, root reserve included | No |
 | `ephemeral-exhaustion.sh` | `storage.ephemeral_exhaustion` | none: the workload overruns its own ephemeral-storage limit; the script checks the node is safe and records the window | No |
 | `containerd-kill.sh` | `runtime.containerd_kill` | SIGKILL to containerd, once or repeatedly | No |
 
@@ -114,7 +113,7 @@ does, and `stop` swaps the pass-through back.
 - **System devices.** A device, or anything built on it, mounted at `/`,
   `/var`, `/var/lib/kubelet`, `/var/lib/containerd`, `/var/lib/etcd` or
   similar is refused, whatever the inventory says.
-- **Filesystem faults check the mount.** Exhaustion and corruption refuse a
+- **Filesystem faults check the mount.** Corruption refuses a
   mountpoint whose filesystem is not on the target device.
 - `fs-corruption.sh` cannot be undone by the script. `stop` prints the
   `e2fsck` needed.
