@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.4.0](https://github.com/00Webbo/tropis/compare/v0.3.2...v0.4.0) (2026-10-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **smart:** PromptVersion is v3 (new prompts/v3.md, one sentence on what a timeout means, and a reshaped host.unreadable). Eval results are not comparable with v2 results.
+
+### Bug fixes
+
+* **capture:** find the scarred drive by serial, not kernel path ([5c99b48](https://github.com/00Webbo/tropis/commit/5c99b48b0399eea0bfcf18a4b866d92e8f11f5b3))
+* **chart:** alert on a stalled sweep, not on old reports ([5a71e21](https://github.com/00Webbo/tropis/commit/5a71e218f1084bed758260910b64f3e1fd1d5fee))
+* **chart:** dial the collector on the port collector.port sets ([b622f3e](https://github.com/00Webbo/tropis/commit/b622f3e472b9c35b2991b96776247a41cbc67ff2))
+* **cli:** make flags and timeouts consistent across commands ([219c73f](https://github.com/00Webbo/tropis/commit/219c73f0b7a95a65c038b47df829bb7543d458c6))
+* **collector:** treat a non-positive --history-interval as the default ([5a3da8c](https://github.com/00Webbo/tropis/commit/5a3da8c18778c9cf6c0d56bd0bf01598a4eee6b1))
+* **devcorpus:** drop gen-devcorpus's -o flag ([80b66a6](https://github.com/00Webbo/tropis/commit/80b66a6cb8cdba1c5bc83a47feb972e96418827a))
+* **npd-plugin:** call the SMART check once per interval ([bb8492d](https://github.com/00Webbo/tropis/commit/bb8492dc29cbc505128ea827504e228e90b0c5a5))
+* **reason:** reject trailing brackets and text after a code fence ([82428d4](https://github.com/00Webbo/tropis/commit/82428d4625777d570dadcbffd45f31a055a056e1))
+* **smart:** report a drive that hangs on smartctl instead of dropping it ([79b6881](https://github.com/00Webbo/tropis/commit/79b6881492ae9f67029368c3a9cfc0c3b0af7d4c))
+
+
+### Performance
+
+* **k8s:** ask only for the node's events, and label new reports at create ([585eeb1](https://github.com/00Webbo/tropis/commit/585eeb181721c76c9dc88e35fe824bfcdc208f1b))
+
+
+### Dependencies
+
+* update Go toolchain and base images ([ee1a599](https://github.com/00Webbo/tropis/commit/ee1a599c4d7b31ef221bc325d901b7ff8cc08c28))
+
 ## [0.3.2](https://github.com/00Webbo/tropis/compare/v0.3.1...v0.3.2) (2026-10-11)
 
 
