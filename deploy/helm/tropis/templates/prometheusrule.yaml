@@ -1,7 +1,7 @@
 {{- if .Values.alerting.prometheusRule.enabled }}
-# Alerts on NodeHealthReports, through metrics kube-state-metrics exports
-# from them. See docs/alerting.md for the kube-state-metrics configuration
-# this depends on.
+# Alerts on NodeHealthReports and on the sweep CronJob, through metrics
+# kube-state-metrics exports. See docs/alerting.md for the kube-state-metrics
+# configuration this depends on.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -27,11 +27,23 @@ spec:
               explains its Kubernetes-layer symptoms (confidence {{`{{ $value }}`}}).
               Evidence and the advisory next step: kubectl get nodehealthreport {{`{{ $labels.node }}`}} -o yaml.
               Tropis has taken no action.
-        - alert: TropisReportStale
-          # A sweep that has stopped producing verdicts looks like silence.
-          expr: time() - tropis_nodehealthreport_observed_timestamp_seconds > 3 * 3600
+        - alert: TropisSweepStale
+          # A sweep that has stopped succeeding looks like silence. Per-report
+          # age cannot show it: the sweep rewrites only raised or causal
+          # nodes, so a quiet node's report ages legitimately, and a healthy
+          # cluster may have no reports at all. Allows three missed runs of
+          # the CronJob's own schedule; needs kube-state-metrics' CronJob
+          # metrics (on by default).
+          expr: |-
+            time() - kube_cronjob_status_last_successful_time{namespace="{{ .Release.Namespace }}", cronjob="{{ include "tropis.fullname" . }}-sweep"}
+              > 3 * (kube_cronjob_next_schedule_time{namespace="{{ .Release.Namespace }}", cronjob="{{ include "tropis.fullname" . }}-sweep"}
+                     - kube_cronjob_status_last_schedule_time{namespace="{{ .Release.Namespace }}", cronjob="{{ include "tropis.fullname" . }}-sweep"})
           labels:
             severity: info
           annotations:
-            summary: "Tropis: no fresh verdict for {{`{{ $labels.node }}`}} in 3 hours"
+            summary: "Tropis: the sweep has not succeeded for three scheduled runs"
+            description: >-
+              No run of CronJob {{`{{ $labels.namespace }}`}}/{{`{{ $labels.cronjob }}`}} has succeeded
+              for three schedule intervals, so NodeHealthReports are not being refreshed.
+              Check its recent Jobs: kubectl -n {{`{{ $labels.namespace }}`}} get jobs.
 {{- end }}

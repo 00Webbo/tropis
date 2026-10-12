@@ -5,7 +5,9 @@
 #   tropis_nodehealthreport_observed_timestamp_seconds{node}
 #
 # The Tropis chart's PrometheusRule (alerting.prometheusRule.enabled) alerts on
-# these. See docs/alerting.md.
+# these, and on the sweep CronJob through kube-state-metrics' standard
+# kube_cronjob_* metrics: keep the cronjobs collector enabled (it is by default)
+# if you restrict `collectors`. See docs/alerting.md.
 #
 #   helm install ksm prometheus-community/kube-state-metrics \
 #     -n monitoring -f deploy/kube-state-metrics/values.yaml

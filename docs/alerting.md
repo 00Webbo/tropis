@@ -107,8 +107,14 @@ helm upgrade tropis deploy/helm/tropis -n tropis-system --reuse-values \
 
 - `TropisCausalVerdict` fires while a node's latest verdict is causal at or
   above `alerting.prometheusRule.minConfidence`, and resolves when it clears.
-- `TropisReportStale` fires when a node has had no fresh verdict for three
-  hours — a stopped sweep otherwise looks exactly like a healthy cluster.
+- `TropisSweepStale` fires when the sweep CronJob has not completed a run
+  successfully for three of its scheduled intervals: a stopped sweep
+  otherwise looks exactly like a healthy cluster. It reads kube-state-metrics'
+  standard CronJob metrics (`kube_cronjob_status_last_successful_time`, on by
+  default), not report age: the sweep rewrites only raised or causal nodes,
+  so a quiet node's report is legitimately old. A sweep that has never
+  succeeded has no last-success time and does not fire it; check the CronJob
+  after installing.
 
 Without the Operator, the same expressions work in a plain Prometheus rules
 file; see `deploy/helm/tropis/templates/prometheusrule.yaml`.
