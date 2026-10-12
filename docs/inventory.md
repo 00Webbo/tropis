@@ -44,7 +44,7 @@ nodes:                             # at least one
         model: Example HDD 2TB     # optional
         transport: sata            # optional: sata, nvme, sas or loop
         destructible: true         # default false; see below
-        mountpoint: /mnt/disks/sacrificial  # optional; exhaustion and corruption need it
+        mountpoint: /mnt/disks/sacrificial  # optional; corruption needs it
         notes: free text           # optional
 ```
 

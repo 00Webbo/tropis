@@ -138,15 +138,9 @@ readable "$base" && fail "degradation: first bad sector readable" || pass "degra
 rec="$("$HERE/degradation.sh" stop)" && check_record degradation "$rec" disk.progressive_degradation yes || fail "degradation stop"
 readable "$base" && pass "degradation: cleared after stop" || fail "degradation: still failing after stop"
 
-# --- disk exhaustion ---------------------------------------------------------
+# --- a filesystem on the target, for the tests below -------------------------
 
 mkfs.ext4 -q -F "$DM" && mount "$DM" "$MNT" || { fail "mkfs/mount"; exit 1; }
-rec="$("$HERE/disk-exhaustion.sh" start)" && check_record disk-exhaustion "$rec" disk.exhaustion no || fail "disk-exhaustion start"
-dd if=/dev/zero of="$MNT/probe" bs=1M count=8 status=none 2>/dev/null && fail "disk-exhaustion: write succeeded" || pass "disk-exhaustion: writes hit ENOSPC"
-rm -f "$MNT/probe"
-rec="$("$HERE/disk-exhaustion.sh" stop)" && check_record disk-exhaustion "$rec" disk.exhaustion yes || fail "disk-exhaustion stop"
-dd if=/dev/zero of="$MNT/probe" bs=1M count=8 status=none && pass "disk-exhaustion: space back after stop" || fail "disk-exhaustion: still full after stop"
-rm -f "$MNT/probe"
 
 # --- ephemeral-storage exhaustion --------------------------------------------
 #
