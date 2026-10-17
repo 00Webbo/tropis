@@ -29,7 +29,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 // Rule IDs. These appear in Verdict.TriggeredBy, so they are part of the

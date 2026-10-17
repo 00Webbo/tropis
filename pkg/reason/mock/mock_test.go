@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/00Webbo/tropis/pkg/reason"
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/reason"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 var at = time.Date(2026, 9, 20, 8, 0, 0, 0, time.UTC)

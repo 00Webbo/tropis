@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/00Webbo/tropis/pkg/notify"
+	"github.com/I-Am-Webbo/tropis/pkg/notify"
 )
 
 // EventNamespace is where events about Nodes live. Nodes are cluster-scoped,

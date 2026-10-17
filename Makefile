@@ -11,7 +11,7 @@ GO      ?= go
 EXE     := $(shell $(GO) env GOEXE)
 BIN     := bin
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS := -s -w -X github.com/00Webbo/tropis/pkg/reason.AgentVersion=$(VERSION)
+LDFLAGS := -s -w -X github.com/I-Am-Webbo/tropis/pkg/reason.AgentVersion=$(VERSION)
 IMAGE   ?= tropis:dev
 CHART   := deploy/helm/tropis
 PKGS    := cmd pkg eval hack deploy
@@ -131,7 +131,7 @@ dist: ## Build release archives and checksums for every platform into dist/
 		name=tropis_$(CHART_VERSION)_$${os}_$${arch}; dir=$(DIST)/$$name; \
 		echo "==> $$name"; mkdir -p $$dir; \
 		GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 $(GO) build -trimpath \
-			-ldflags "-s -w -X github.com/00Webbo/tropis/pkg/reason.AgentVersion=v$(CHART_VERSION)" \
+			-ldflags "-s -w -X github.com/I-Am-Webbo/tropis/pkg/reason.AgentVersion=v$(CHART_VERSION)" \
 			-o $$dir/tropis$$ext ./cmd/tropis; \
 		GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 $(GO) build -trimpath -ldflags "-s -w" \
 			-o $$dir/tropis-collector$$ext ./cmd/tropis-collector; \

@@ -9,7 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 func raw(t *testing.T, v any) schema.RawJSON {

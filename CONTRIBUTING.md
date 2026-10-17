@@ -124,8 +124,8 @@ Releases are automated with [release-please](https://github.com/googleapis/relea
 3. **Merging the release pull request publishes the release.** CI runs again,
    release-please creates the tag and GitHub Release, and the publish job
    attaches the artifacts: CLI archives with cosign-signed checksums, the
-   multi-arch image at `ghcr.io/00webbo/tropis:X.Y.Z` with SBOM and
-   provenance, and the chart at `oci://ghcr.io/00webbo/charts/tropis`, all
+   multi-arch image at `ghcr.io/i-am-webbo/tropis:X.Y.Z` with SBOM and
+   provenance, and the chart at `oci://ghcr.io/i-am-webbo/charts/tropis`, all
    signed. Versions `0.x` are marked pre-release.
 
 Merges containing only `docs`, `refactor`, `test`, `build`, `ci` or `chore` commits

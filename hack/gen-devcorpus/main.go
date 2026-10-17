@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/00Webbo/tropis/eval/devcorpus"
-	"github.com/00Webbo/tropis/eval/scenarios"
+	"github.com/I-Am-Webbo/tropis/eval/devcorpus"
+	"github.com/I-Am-Webbo/tropis/eval/scenarios"
 )
 
 const out = "eval/testdata"

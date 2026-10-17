@@ -21,7 +21,7 @@ ENV GOOS=$TARGETOS GOARCH=$TARGETARCH
 # part of the image either way.
 RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go build -trimpath \
-      -ldflags "-s -w -X github.com/00Webbo/tropis/pkg/reason.AgentVersion=${VERSION}" \
+      -ldflags "-s -w -X github.com/I-Am-Webbo/tropis/pkg/reason.AgentVersion=${VERSION}" \
       -o /out/tropis ./cmd/tropis && \
     CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" \
       -o /out/tropis-collector ./cmd/tropis-collector

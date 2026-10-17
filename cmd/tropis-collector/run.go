@@ -10,8 +10,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/00Webbo/tropis/pkg/host/prefilter"
-	"github.com/00Webbo/tropis/pkg/host/smart"
+	"github.com/I-Am-Webbo/tropis/pkg/host/prefilter"
+	"github.com/I-Am-Webbo/tropis/pkg/host/smart"
 )
 
 const usage = `usage: tropis-collector <command> [flags] [device...]

@@ -23,8 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/00Webbo/tropis/pkg/k8s/triggers"
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/k8s/triggers"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 // Bounds on how much log is read per container, and how far back events go.

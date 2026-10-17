@@ -7,7 +7,7 @@ that is a bug — please open an issue.
 ## Reporting a vulnerability
 
 Report suspected vulnerabilities privately via GitHub's [private security
-advisory](https://github.com/00Webbo/tropis/security/advisories/new)
+advisory](https://github.com/I-Am-Webbo/tropis/security/advisories/new)
 feature. Please do not open a public issue for a suspected vulnerability.
 
 We aim to acknowledge a report within 5 working days and to provide an
@@ -159,7 +159,7 @@ Each release's container image, Helm chart and `checksums.txt` (covering the
 CLI archives) are signed keylessly with cosign from the release workflow, and
 the image carries an SBOM and SLSA provenance. Each release's notes give the
 `cosign verify` commands for the image and the checksums; the chart verifies
-the same way as the image, as `ghcr.io/00webbo/charts/tropis:<version>`.
+the same way as the image, as `ghcr.io/i-am-webbo/charts/tropis:<version>`.
 
 ## Supported versions
 

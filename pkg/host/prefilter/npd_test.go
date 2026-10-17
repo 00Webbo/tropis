@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/00Webbo/tropis/pkg/host/smart"
+	"github.com/I-Am-Webbo/tropis/pkg/host/smart"
 )
 
 func TestNPDExitCodes(t *testing.T) {

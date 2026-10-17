@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 var at = time.Date(2026, 10, 4, 9, 0, 0, 0, time.UTC)

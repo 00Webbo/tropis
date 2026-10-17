@@ -16,7 +16,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 // Kind classifies a change.

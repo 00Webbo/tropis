@@ -17,8 +17,8 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/anthropics/anthropic-sdk-go/shared/constant"
 
-	"github.com/00Webbo/tropis/pkg/reason"
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/reason"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 // DefaultModel is the model used when none is configured.

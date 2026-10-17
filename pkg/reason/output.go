@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 // ModelOutput is what the model is asked to produce. The backend fills the

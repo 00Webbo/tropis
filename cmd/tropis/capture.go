@@ -8,11 +8,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/00Webbo/tropis/eval/capture"
-	"github.com/00Webbo/tropis/eval/scenarios"
-	"github.com/00Webbo/tropis/pkg/inventory"
-	"github.com/00Webbo/tropis/pkg/k8s"
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/eval/capture"
+	"github.com/I-Am-Webbo/tropis/eval/scenarios"
+	"github.com/I-Am-Webbo/tropis/pkg/inventory"
+	"github.com/I-Am-Webbo/tropis/pkg/k8s"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 func init() {

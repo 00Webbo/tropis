@@ -15,8 +15,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
-	"github.com/00Webbo/tropis/pkg/k8s/triggers"
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/k8s/triggers"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 var now = time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)

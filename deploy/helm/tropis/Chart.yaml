@@ -6,7 +6,7 @@ version: 0.4.0 # x-release-please-version
 appVersion: "0.4.0" # x-release-please-version
 home: https://tropis.io
 sources:
-  - https://github.com/00Webbo/tropis
+  - https://github.com/I-Am-Webbo/tropis
 keywords:
   - diagnostics
   - bare-metal

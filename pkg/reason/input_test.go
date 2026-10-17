@@ -13,9 +13,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/00Webbo/tropis/pkg/fixture"
-	"github.com/00Webbo/tropis/pkg/host/prefilter"
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/fixture"
+	"github.com/I-Am-Webbo/tropis/pkg/host/prefilter"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 var (

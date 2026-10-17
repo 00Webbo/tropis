@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 var testInfo = schema.BackendInfo{Provider: "test", Model: "test-1", PromptVersion: PromptVersion}

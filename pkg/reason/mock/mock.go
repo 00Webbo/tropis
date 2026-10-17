@@ -17,8 +17,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/00Webbo/tropis/pkg/reason"
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/reason"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 // Model is the mock's model identifier.

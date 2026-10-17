@@ -7,8 +7,8 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/00Webbo/tropis/pkg/k8s"
-	"github.com/00Webbo/tropis/pkg/notify"
+	"github.com/I-Am-Webbo/tropis/pkg/k8s"
+	"github.com/I-Am-Webbo/tropis/pkg/notify"
 )
 
 // notifyConfig is read from the environment only. Webhook URLs are

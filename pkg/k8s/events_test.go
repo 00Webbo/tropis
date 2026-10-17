@@ -10,8 +10,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/00Webbo/tropis/pkg/notify"
-	tropis "github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/notify"
+	tropis "github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 func TestEventNotifier(t *testing.T) {

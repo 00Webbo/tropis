@@ -5,7 +5,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/00Webbo/tropis/pkg/k8s"
+	"github.com/I-Am-Webbo/tropis/pkg/k8s"
 )
 
 // The chart sets the collector's listen port; the analyser must dial the

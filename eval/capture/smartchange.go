@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/00Webbo/tropis/eval/scenarios"
-	"github.com/00Webbo/tropis/pkg/host/smart"
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/eval/scenarios"
+	"github.com/I-Am-Webbo/tropis/pkg/host/smart"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 // counters reads each expectSmart counter from a parsed reading.

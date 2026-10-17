@@ -1,7 +1,7 @@
 # Tropis Helm values.
 
 image:
-  repository: ghcr.io/00webbo/tropis
+  repository: ghcr.io/i-am-webbo/tropis
   # Defaults to the chart's appVersion.
   tag: ""
   pullPolicy: IfNotPresent

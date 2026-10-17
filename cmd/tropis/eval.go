@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/00Webbo/tropis/eval/report"
-	"github.com/00Webbo/tropis/eval/runner"
-	"github.com/00Webbo/tropis/pkg/inventory"
-	"github.com/00Webbo/tropis/pkg/reason/backend"
+	"github.com/I-Am-Webbo/tropis/eval/report"
+	"github.com/I-Am-Webbo/tropis/eval/runner"
+	"github.com/I-Am-Webbo/tropis/pkg/inventory"
+	"github.com/I-Am-Webbo/tropis/pkg/reason/backend"
 )
 
 // backendFlags configure a reasoning backend on top of TROPIS_* environment

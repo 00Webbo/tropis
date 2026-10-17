@@ -12,12 +12,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/00Webbo/tropis/pkg/host/prefilter"
-	"github.com/00Webbo/tropis/pkg/host/smart"
-	"github.com/00Webbo/tropis/pkg/k8s/triggers"
-	"github.com/00Webbo/tropis/pkg/notify"
-	"github.com/00Webbo/tropis/pkg/reason"
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/host/prefilter"
+	"github.com/I-Am-Webbo/tropis/pkg/host/smart"
+	"github.com/I-Am-Webbo/tropis/pkg/k8s/triggers"
+	"github.com/I-Am-Webbo/tropis/pkg/notify"
+	"github.com/I-Am-Webbo/tropis/pkg/reason"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 // Prefilter runs the deterministic rules over raw captures exactly as the

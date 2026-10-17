@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/00Webbo/tropis/eval/runner"
-	"github.com/00Webbo/tropis/pkg/reason/mock"
+	"github.com/I-Am-Webbo/tropis/eval/runner"
+	"github.com/I-Am-Webbo/tropis/pkg/reason/mock"
 )
 
 func TestMarkdownOnDevCorpus(t *testing.T) {

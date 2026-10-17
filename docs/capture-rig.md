@@ -267,7 +267,7 @@ Then:
   matching `tropis` CLI from the same GitHub Release:
 
   ```sh
-  helm install tropis oci://ghcr.io/00webbo/charts/tropis --version <x.y.z> \
+  helm install tropis oci://ghcr.io/i-am-webbo/charts/tropis --version <x.y.z> \
     -n tropis-system --create-namespace --set backend.provider=mock
   ```
 

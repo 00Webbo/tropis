@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 func runCmd(args ...string) (int, string, string) {

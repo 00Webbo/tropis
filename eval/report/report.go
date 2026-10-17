@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/00Webbo/tropis/eval/runner"
-	"github.com/00Webbo/tropis/pkg/schema"
+	"github.com/I-Am-Webbo/tropis/eval/runner"
+	"github.com/I-Am-Webbo/tropis/pkg/schema"
 )
 
 var relationships = []string{
