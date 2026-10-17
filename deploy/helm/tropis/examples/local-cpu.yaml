@@ -1,21 +1,20 @@
 # Profile: local-cpu. See docs/model-profiles.md.
 #
-# For: clusters whose data must not leave and that have no GPU. Expect it
-# to be slow (about six minutes per analysed node on a 16-thread desktop
-# CPU) and wrong more often than local-gpu-8gb.
+# For: clusters whose data must not leave and that have no GPU. It is slow
+# (3 to 13 minutes per analysed node on a 16-thread desktop CPU) and wrong
+# more often than local-gpu-8gb.
 # Needs: an Ollama server reachable from the cluster, with the model pulled
 # (`ollama pull qwen3.5:4b`), and about 4 GB of free RAM for it.
-# contextTokens is doubled: at the default, this model's hidden reasoning
-# sometimes filled the window and the verdict failed as truncated.
-# A sweep analyses its candidates one after another, so it gets longer to
-# finish and runs hourly; a sweep still running when the next is due makes
-# that one skip.
+# Candidates are analysed one after another, so a sweep runs hourly with a
+# longer timeout; a sweep still running when the next is due makes that one
+# skip. Keep the default contextTokens: a larger window did not stop this
+# model's occasional runaway reasoning, it only made the failure take
+# longer to arrive.
 # Leaves the cluster: nothing.
 backend:
   provider: local
   baseURL: http://ollama.ollama:11434
   model: qwen3.5:4b
-  contextTokens: 32768
 sweep:
   schedule: "0 * * * *"
   timeout: 2h
