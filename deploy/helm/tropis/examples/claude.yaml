@@ -1,0 +1,11 @@
+# Profile: claude (the chart's default backend). See docs/model-profiles.md.
+#
+# For: the best accuracy, on clusters allowed to send data to Anthropic.
+# Needs: an Anthropic API key in a Secret:
+#   kubectl -n tropis-system create secret generic tropis-anthropic \
+#     --from-literal=api-key="$ANTHROPIC_API_KEY"
+# Leaves the cluster: the redacted evidence of each node the pre-filter
+# raises, sent to Anthropic (SECURITY.md, "What leaves the cluster").
+backend:
+  apiKeySecret:
+    name: tropis-anthropic

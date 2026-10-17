@@ -76,8 +76,9 @@ npd-test: build ## Test the NPD plugin wrapper honours NPD's exit-code protocol
 	sh hack/npd-plugin/test.sh "$(CURDIR)/$(BIN)/tropis-collector$(EXE)" "$(CURDIR)/pkg/host/smart/testdata"
 
 .PHONY: helm-lint
-helm-lint: ## Lint the Helm chart (helm)
+helm-lint: ## Lint the Helm chart and each example values file (helm)
 	helm lint $(CHART)
+	for f in $(CHART)/examples/*.yaml; do helm lint $(CHART) -f "$$f"; done
 
 .PHONY: check
 check: fmt-check vet test check-generated npd-test helm-lint ## Everything that needs no Docker: run before pushing

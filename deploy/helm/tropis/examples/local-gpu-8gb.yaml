@@ -1,0 +1,13 @@
+# Profile: local-gpu-8gb. See docs/model-profiles.md.
+#
+# For: clusters whose data must not leave, with a GPU of about 8 GB.
+# Tested on an RTX 3070 (8 GB VRAM).
+# Needs: an Ollama server reachable from the cluster, with the model pulled
+# (`ollama pull qwen3.5:9b`). The default contextTokens (16384) fits on
+# 8 GB. Thinking stays at the model's default: on the dev corpus, turning
+# it off made the model overconfident.
+# Leaves the cluster: nothing.
+backend:
+  provider: local
+  baseURL: http://ollama.ollama:11434
+  model: qwen3.5:9b

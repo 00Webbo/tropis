@@ -105,6 +105,11 @@ thinking settings, and what to do when verdicts fail as truncated, are
 described with `backend` in
 [values.yaml](deploy/helm/tropis/values.yaml).
 
+[docs/model-profiles.md](docs/model-profiles.md) compares ready-made backend
+profiles (hosted, sweep-then-escalate, local GPU, local CPU) by hardware,
+what leaves the cluster, speed and measured behaviour. Each has a values
+file to install with `-f`.
+
 To try it with no model at all, `--set backend.provider=mock --set sweep.all=true`
 uses a deterministic heuristic that analyses every node — a first verdict
 typically appears within seconds. It is not a reasoning engine; do not act

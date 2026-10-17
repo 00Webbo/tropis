@@ -12,7 +12,9 @@ fullnameOverride: ""
 
 # The reasoning backend. Only nodes the deterministic pre-filter raises are
 # ever sent to it. See SECURITY.md for exactly what leaves the cluster with
-# each backend; with `local`, nothing does.
+# each backend; with `local`, nothing does. Ready-made profiles for common
+# hardware and data rules are in examples/, compared in
+# docs/model-profiles.md.
 backend:
   # anthropic (default), local, or mock. `mock` is a deterministic heuristic
   # for trying Tropis out and for tests: it is not a reasoning engine.

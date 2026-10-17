@@ -1,0 +1,14 @@
+# Profile: claude-sweep-escalate. See docs/model-profiles.md.
+#
+# For: clusters where the cost of calling the default model on every
+# candidate node matters more than some accuracy. A cheaper model sweeps;
+# the default model is consulted only when the sweep claims causality, is
+# unsure (confidence below 0.7) or fails. A sweep that is confidently wrong
+# is not escalated, which is the accuracy given up.
+# Needs: an Anthropic API key in a Secret, as for the claude profile.
+# Leaves the cluster: as for the claude profile, sent once or twice per node.
+backend:
+  model: claude-sonnet-5-5
+  escalationModel: claude-opus-5
+  apiKeySecret:
+    name: tropis-anthropic
